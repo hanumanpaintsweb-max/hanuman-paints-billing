@@ -415,8 +415,14 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
 
             {/* Products Card */}
             <div className="bg-card-bg border border-border-default rounded shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-border-default">
+              <div className="p-5 border-b border-border-default flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-text-main">Products</h3>
+                <button 
+                  onClick={handleAddItem}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded text-sm font-bold shadow hover:bg-active-blue transition-colors"
+                >
+                  <Plus className="h-4 w-4" /> Add Product
+                </button>
               </div>
               
               <div className="overflow-x-auto min-h-[300px]">
@@ -538,14 +544,6 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                     ))}
                   </tbody>
                 </table>
-              </div>
-              <div className="p-4 bg-surface-container-low border-t border-border-default">
-                <button 
-                  onClick={handleAddItem}
-                  className="flex items-center gap-2 text-sm font-medium text-primary hover:text-active-blue"
-                >
-                  <Plus className="h-4 w-4" /> Add Product
-                </button>
               </div>
             </div>
 

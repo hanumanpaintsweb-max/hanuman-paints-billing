@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
-import { Search, BarChart, Package, AlertTriangle, XCircle, Edit, Loader2 } from "lucide-react"
+import { Search, BarChart, Package, AlertTriangle, XCircle, Edit, Loader2, Save } from "lucide-react"
 
 const CATEGORIES = ["Emulsion", "Enamel", "Primer", "Putty", "Thinner", "Waterproofing", "Hardware", "Tools/Brushes", "Other"]
 
@@ -18,6 +18,7 @@ export default function StockPage() {
   const [stockType, setStockType] = useState<"add" | "remove">("add")
   const [stockQty, setStockQty] = useState<number | "">("")
   const [saving, setSaving] = useState(false)
+  const [modifiedIds, setModifiedIds] = useState<Set<string>>(new Set())
 
   const fetchStock = async () => {
     setLoading(true)
@@ -88,18 +89,53 @@ export default function StockPage() {
     fetchStock()
   }
 
-  const handleMRPUpdate = async (id: string, newMrp: string) => {
+  const handleMRPUpdate = (id: string, newMrp: string) => {
     const numericMrp = parseFloat(newMrp);
-    
-    // Optimistic UI Update
     setProducts(products.map(p => p.id === id ? { ...p, mrp: newMrp === "" ? null : numericMrp || p.mrp } : p));
-    
-    // DB Update
-    if (!isNaN(numericMrp)) {
-      await supabase.from("products").update({ mrp: numericMrp }).eq("id", id);
-    } else if (newMrp === "") {
-      await supabase.from("products").update({ mrp: null }).eq("id", id);
+    setModifiedIds(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+  }
+
+  const handleStockUpdate = (id: string, newStock: string) => {
+    const numericStock = parseInt(newStock);
+    if (!isNaN(numericStock)) {
+      setProducts(products.map(p => p.id === id ? { ...p, current_stock: numericStock } : p));
+      setModifiedIds(prev => {
+        const next = new Set(prev)
+        next.add(id)
+        return next
+      })
     }
+  }
+
+  const handleSaveChanges = async () => {
+    setSaving(true)
+    let hasError = false
+    
+    const promises = Array.from(modifiedIds).map(async (id) => {
+      const p = products.find(prod => prod.id === id)
+      if (p) {
+        const { error } = await supabase.from('products').update({ mrp: p.mrp, current_stock: p.current_stock }).eq('id', p.id)
+        if (error) {
+           console.error("Failed to update", p.name, error)
+           hasError = true
+        }
+      }
+    })
+    
+    await Promise.all(promises)
+    
+    if (hasError) {
+      alert("Some changes failed to save.")
+    } else {
+      alert("Changes saved successfully!")
+      setModifiedIds(new Set())
+    }
+    
+    setSaving(false)
   }
 
   return (
@@ -108,6 +144,16 @@ export default function StockPage() {
         <h1 className="text-2xl font-bold text-text-main flex items-center gap-2">
           <BarChart className="h-6 w-6 text-primary" /> Stock Management
         </h1>
+        {modifiedIds.size > 0 && (
+          <button 
+            onClick={handleSaveChanges}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded font-bold shadow hover:bg-active-blue transition-colors disabled:opacity-70"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Changes ({modifiedIds.size})
+          </button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -186,13 +232,16 @@ export default function StockPage() {
                     <td className="px-6 py-3 text-text-muted">{p.category}</td>
                     <td className="px-6 py-3 text-text-muted">{p.unit || '-'}</td>
                     <td className="px-6 py-3 text-center">
-                      <span className={`px-2 py-1 rounded font-mono font-bold ${
-                        p.current_stock <= 0 ? 'bg-gray-100 text-gray-700' : 
-                        p.current_stock < 5 ? 'bg-red-100 text-red-700' : 
-                        'text-text-main'
-                      }`}>
-                        {p.current_stock}
-                      </span>
+                      <input 
+                        type="number"
+                        value={p.current_stock}
+                        onChange={(e) => handleStockUpdate(p.id, e.target.value)}
+                        className={`w-20 px-2 py-1.5 text-center border border-border-default rounded focus:border-primary outline-none font-mono text-sm font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                          p.current_stock <= 0 ? 'bg-gray-100 text-gray-700' : 
+                          p.current_stock < 5 ? 'bg-red-100 text-red-700' : 
+                          'text-text-main bg-transparent'
+                        }`}
+                      />
                     </td>
                     <td className="px-6 py-3 text-right">
                       <div className="flex justify-end items-center gap-1">
