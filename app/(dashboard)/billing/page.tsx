@@ -741,7 +741,11 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
       </div>
 
       {/* Print Overlay */}
-      <div id="bill-print" className="hidden print:block" style={{ width: '100%', maxWidth: 'none', fontSize: '11px' }}>
+      <div 
+        id="bill-print" 
+        className="hidden print:block"
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
+      >
         <style type="text/css">
           {`
             @media print {
@@ -770,17 +774,41 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
               .no-print {
                 display: none !important;
               }
+
+              .bill-page {
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                min-height: 100vh;
+              }
+
+              .bill-page:last-child {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+              }
             }
           `}
         </style>
 
         {printChunks.map((pageItems, idx) => (
-          <div key={idx} style={{
-            fontFamily: 'Arial, sans-serif',
-            fontSize: '11px',
-            pageBreakAfter: idx < printChunks.length - 1 ? 'always' : 'avoid',
-            padding: '4px'
-          }}>
+          <div 
+            key={idx} 
+            className="bill-page"
+            style={{
+              width: '100%',
+              minHeight: '100vh',
+              pageBreakAfter: 'always',
+              pageBreakInside: 'avoid',
+              breakAfter: 'page',
+              breakInside: 'avoid',
+              display: 'block',
+              padding: '8mm',
+              boxSizing: 'border-box',
+              fontFamily: 'Arial, sans-serif',
+              fontSize: '11px'
+            }}
+          >
             
             {/* HEADER */}
             <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
