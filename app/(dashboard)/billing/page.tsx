@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, Suspense } from "react"
+import { useState, useEffect, useMemo, Suspense, Fragment } from "react"
 import { format } from "date-fns"
 import { supabase } from "@/lib/supabase"
 import { Plus, Trash2, Printer, Save, MessageCircle, CheckCircle2 } from "lucide-react"
@@ -695,128 +695,217 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
       </div>
 
       {/* Print Overlay (Only visible during print) */}
-      <div className="hidden print:block w-full text-black font-sans bg-white">
+      <div className="hidden print:flex flex-col items-center w-full bg-white text-black font-sans">
         <style type="text/css" media="print">
           {`
             @page {
               size: A5 portrait;
-              margin: 8mm;
+              margin: 6mm;
+            }
+            * {
+              -webkit-print-color-adjust: exact;
             }
             .bill-page {
-              width: 100%;
-              min-height: auto;
+              width: 148mm;
+              min-height: 205mm;
+              display: flex;
+              flex-direction: column;
+              font-family: Arial, sans-serif;
+              font-size: 11px;
               page-break-after: always;
             }
             .bill-page:last-child {
               page-break-after: avoid;
             }
+            .bill-header {
+              text-align: center;
+              border-bottom: 2px solid black;
+              padding-bottom: 4px;
+              margin-bottom: 4px;
+            }
+            .bill-header h1 { 
+              font-size: 18px; 
+              font-weight: 900;
+              margin: 0;
+              letter-spacing: 1px;
+            }
+            .bill-header h2 { 
+              font-size: 11px;
+              margin: 2px 0;
+            }
+            .bill-info {
+              display: flex;
+              justify-content: space-between;
+              border-bottom: 1px solid black;
+              padding: 3px 0;
+              font-size: 10px;
+            }
+            .customer-info {
+              border-bottom: 1px solid black;
+              padding: 3px 0;
+              font-size: 10px;
+            }
+            .print-table {
+              width: 100%;
+              border-collapse: collapse;
+              flex: 1;
+            }
+            .print-table th {
+              background: #000;
+              color: #fff;
+              padding: 3px 2px;
+              font-size: 9px;
+              text-align: center;
+              border: 1px solid black;
+            }
+            .print-table td {
+              padding: 4px 2px;
+              border: 1px solid black;
+              font-size: 10px;
+              vertical-align: top;
+            }
+            .totals {
+              border-top: 2px solid black;
+              margin-top: 4px;
+              padding-top: 4px;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+              padding: 1px 0;
+            }
+            .grand-total {
+              display: flex;
+              justify-content: space-between;
+              font-size: 14px;
+              font-weight: 900;
+              border-top: 2px solid black;
+              border-bottom: 2px solid black;
+              padding: 3px 0;
+              margin: 3px 0;
+            }
+            .footer {
+              margin-top: auto;
+              border-top: 1px dashed black;
+              padding-top: 3px;
+              font-size: 8px;
+              text-align: center;
+            }
           `}
         </style>
 
         {printChunks.map((chunk, pageIndex) => (
-          <div key={pageIndex} className="bill-page text-[12px] leading-snug relative flex flex-col">
+          <div key={pageIndex} className="bill-page bg-white text-black">
+            
             {/* Header always */}
-            <div className="text-center border-b border-black pb-1 mb-1">
-              <h1 className="text-[18px] font-bold uppercase tracking-wide m-0 p-0 leading-tight">HANUMAN PAINTS</h1>
-              <div className="text-[11px] m-0 p-0">Authorized Dulux Blue Store, Lohapatty, Madhubani Ph:8292889540</div>
-              <div className="mt-1 font-bold text-[13px] uppercase">
-                {billType === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}
-              </div>
-              <div className="text-[11px] font-bold">Bill: {billNumber} <span className="ml-4">Dt: {format(new Date(billDate), 'dd/MM/yyyy')}</span></div>
+            <div className="bill-header">
+              <h1>HANUMAN PAINTS</h1>
+              <h2>Authorized Dulux Blue Store, Lohapatty, Madhubani Ph:8292889540</h2>
+              <h2>{billType === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}</h2>
+            </div>
+            
+            <div className="bill-info">
+              <span><b>Bill:</b> {billNumber}</span>
+              <span><b>Dt:</b> {format(new Date(billDate), 'dd/MM/yyyy')}</span>
             </div>
 
             {/* CustomerInfo */}
-            <div className="flex justify-between mb-2 border-b border-black pb-1">
-              <div>
-                <div><span className="font-semibold">Customer:</span> {customerName}</div>
-                <div><span className="font-semibold">Phone:</span> {customerPhone}</div>
-                {customerAddress && <div><span className="font-semibold">Address:</span> {customerAddress}</div>}
-              </div>
-              <div className="text-right text-[10px]">
-                <div>Page: {pageIndex + 1} of {printChunks.length}</div>
+            <div className="customer-info">
+              <div className="flex justify-between">
+                <div>
+                  <div><b>Customer:</b> {customerName}</div>
+                  <div><b>Phone:</b> {customerPhone}</div>
+                  {customerAddress && <div><b>Address:</b> {customerAddress}</div>}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div>Page: {pageIndex + 1} of {printChunks.length}</div>
+                </div>
               </div>
             </div>
 
             {/* ItemsTable */}
-            <table className="w-full text-left border-collapse mb-1">
-              <thead className="border-y border-black font-semibold">
+            <table className="print-table">
+              <thead>
                 <tr>
-                  <th className="py-0.5">S.No</th>
-                  <th className="py-0.5">Item</th>
-                  <th className="py-0.5 text-center">Qty</th>
-                  <th className="py-0.5 text-right">Rate</th>
-                  <th className="py-0.5 text-right">Total</th>
+                  <th style={{ width: '8%' }}>S.No</th>
+                  <th style={{ width: '40%', textAlign: 'left' }}>Item Description</th>
+                  <th style={{ width: '12%' }}>Size</th>
+                  <th style={{ width: '8%' }}>Qty</th>
+                  <th style={{ width: '16%', textAlign: 'right' }}>Rate</th>
+                  <th style={{ width: '16%', textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>
-              <tbody className="border-b border-black">
+              <tbody>
                 {chunk.map((item, idx) => (
-                  <tr key={item.id}>
-                    <td className="py-0.5 align-top w-8">{pageIndex * ITEMS_PER_PAGE + idx + 1}</td>
-                    <td className="py-0.5 align-top">
-                      <div className="font-medium">{item.name} {item.size} {item.base && `| Base: ${item.base}`}</div>
-                      {item.hasColorant && (
-                        <div className="text-[10px] text-gray-800">
-                          └ Color: {item.colorCode} ₹{item.colorantCost.toFixed(2)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-0.5 align-top text-center w-10">{item.qty}</td>
-                    <td className="py-0.5 align-top text-right w-16">{item.rate.toFixed(2)}</td>
-                    <td className="py-0.5 align-top text-right font-mono w-20">{item.itemSub.toFixed(2)}</td>
-                  </tr>
+                  <Fragment key={item.id}>
+                    <tr>
+                      <td style={{ textAlign: 'center' }}>{pageIndex * ITEMS_PER_PAGE + idx + 1}</td>
+                      <td>{item.name} {item.base && `| Base: ${item.base}`}</td>
+                      <td style={{ textAlign: 'center' }}>{item.size}</td>
+                      <td style={{ textAlign: 'center' }}>{item.qty}</td>
+                      <td style={{ textAlign: 'right' }}>{item.rate.toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{item.itemSub.toFixed(2)}</td>
+                    </tr>
+                    {item.hasColorant && (
+                      <tr>
+                        <td></td>
+                        <td style={{ paddingLeft: '8px', fontSize: '9px', color: '#444' }}>
+                          └ Color: {item.colorCode} | Colorant: ₹{item.colorantCost.toFixed(2)}
+                        </td>
+                        <td colSpan={4}></td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
             
             {/* Totals only on last page */}
             {pageIndex === printChunks.length - 1 && (
-              <div className="mt-auto pt-1">
-                <div className="flex justify-end">
-                  <div className="w-[180px]">
-                    <div className="flex justify-between py-0.5">
-                      <span>Subtotal:</span>
-                      <span className="font-mono">₹{totals.subtotal.toFixed(2)}</span>
-                    </div>
-                    {totals.discount_amount > 0 && (
-                      <div className="flex justify-between py-0.5">
-                        <span>Discount (-):</span>
-                        <span className="font-mono">₹{totals.discount_amount.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between py-0.5">
-                      <span>Taxable:</span>
-                      <span className="font-mono">₹{totals.taxable_value.toFixed(2)}</span>
-                    </div>
-                    {totals.cgst_amount > 0 && (
-                      <>
-                        <div className="flex justify-between py-0.5">
-                          <span>CGST ({globalGst === "" ? 0 : globalGst}%):</span>
-                          <span className="font-mono">₹{totals.cgst_amount.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between py-0.5">
-                          <span>SGST ({globalGst === "" ? 0 : globalGst}%):</span>
-                          <span className="font-mono">₹{totals.sgst_amount.toFixed(2)}</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between py-1 border-t border-black font-bold text-[13px] mt-0.5">
-                      <span>GRAND TOTAL:</span>
-                      <span className="font-mono">₹{totals.total_amount.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between py-0.5 mt-0.5 font-bold uppercase">
-                      <span>Payment:</span>
-                      <span>{paymentStatus}</span>
-                    </div>
-                  </div>
+              <div className="totals">
+                <div className="total-row">
+                  <span>Subtotal:</span>
+                  <span>₹{totals.subtotal.toFixed(2)}</span>
                 </div>
-                {/* Footer */}
-                <div className="mt-2 pt-1 border-t border-black border-dashed text-center text-[10px]">
-                  <div className="font-semibold">Terms & Conditions</div>
-                  <div>Goods once sold cannot be returned.</div>
-                  {billType === 'DPL' && <div className="font-bold">* Dealer Price List</div>}
+                {totals.discount_amount > 0 && (
+                  <div className="total-row">
+                    <span>Discount (-):</span>
+                    <span>₹{totals.discount_amount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="total-row">
+                  <span>Taxable:</span>
+                  <span>₹{totals.taxable_value.toFixed(2)}</span>
+                </div>
+                {totals.cgst_amount > 0 && (
+                  <>
+                    <div className="total-row">
+                      <span>CGST ({globalGst === "" ? 0 : globalGst}%):</span>
+                      <span>₹{totals.cgst_amount.toFixed(2)}</span>
+                    </div>
+                    <div className="total-row">
+                      <span>SGST ({globalGst === "" ? 0 : globalGst}%):</span>
+                      <span>₹{totals.sgst_amount.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="grand-total">
+                  <span>GRAND TOTAL:</span>
+                  <span>₹{totals.total_amount.toFixed(2)}</span>
+                </div>
+                <div className="total-row" style={{ fontWeight: 'bold' }}>
+                  <span>Payment Status:</span>
+                  <span style={{ textTransform: 'uppercase' }}>{paymentStatus}</span>
                 </div>
               </div>
             )}
+            
+            {/* Footer */}
+            <div className="footer">
+              <b>Terms:</b> Goods once sold cannot be returned.
+              {billType === 'DPL' && <div><b>* Dealer Price List</b></div>}
+            </div>
           </div>
         ))}
       </div>
