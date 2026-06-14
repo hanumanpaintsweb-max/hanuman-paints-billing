@@ -63,21 +63,33 @@ function BillingContent() {
   })
 
   const fetchNextBillNumber = async () => {
-    const { data } = await supabase
-      .from("bills")
-      .select("bill_number")
-      .order("created_at", { ascending: false })
-      .limit(1)
+    try {
+      const { data, error } = await supabase
+        .from('bills')
+        .select('bill_number')
+        .order('created_at', { 
+          ascending: false 
+        })
+        .limit(1)
+        .single()
       
-    if (data && data.length > 0) {
-      const match = data[0].bill_number.match(/HP-S-(\d+)/)
-      if (match) {
-        const nextNum = parseInt(match[1]) + 1
-        setBillNumber(`HP-S-${nextNum.toString().padStart(3, '0')}`)
+      if (error || !data) {
+        setBillNumber('HP-S-001')
         return
       }
+      
+      const match = data.bill_number
+        .match(/(\d+)$/)
+      const next = match 
+        ? parseInt(match[1]) + 1 
+        : 1
+      setBillNumber(
+        'HP-S-' + 
+        next.toString().padStart(3, '0')
+      )
+    } catch {
+      setBillNumber('HP-S-001')
     }
-    setBillNumber("HP-S-001")
   }
 
   useEffect(() => {
@@ -751,41 +763,26 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
             @media print {
               @page {
                 size: A5 portrait;
-                margin: 8mm;
+                margin: 10mm;
               }
-              
-              body * {
-                visibility: hidden;
+              body * { 
+                visibility: hidden; 
               }
-              
-              #bill-print {
+              #bill-print { 
                 visibility: visible;
                 position: fixed;
                 top: 0;
                 left: 0;
-                width: 100%;
-                height: auto;
+                width: 148mm;
               }
-              
-              #bill-print * {
-                visibility: visible;
+              #bill-print * { 
+                visibility: visible; 
               }
-              
-              .no-print {
-                display: none !important;
+              #bill-print .bill-page {
+                page-break-after: always;
               }
-
-              .bill-page {
-                page-break-after: always !important;
-                break-after: page !important;
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-                min-height: 100vh;
-              }
-
-              .bill-page:last-child {
-                page-break-after: avoid !important;
-                break-after: avoid !important;
+              #bill-print .bill-page:last-child {
+                page-break-after: avoid;
               }
             }
           `}
@@ -797,14 +794,8 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
             className="bill-page"
             style={{
               width: '100%',
-              minHeight: '100vh',
-              pageBreakAfter: 'always',
-              pageBreakInside: 'avoid',
-              breakAfter: 'page',
-              breakInside: 'avoid',
-              display: 'block',
-              padding: '8mm',
-              boxSizing: 'border-box',
+              paddingBottom: '8px',
+              pageBreakAfter: idx < printChunks.length - 1 ? 'always' : 'avoid',
               fontFamily: 'Arial, sans-serif',
               fontSize: '11px'
             }}
