@@ -16,6 +16,7 @@ interface BillItem {
   hasColorant: boolean;
   colorCode: string;
   colorantCost: number;
+  isCustomGst?: boolean;
 }
 
 export default function BillingPage() {
@@ -31,7 +32,7 @@ export default function BillingPage() {
 
   // Products
   const [items, setItems] = useState<BillItem[]>([
-    { id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
+    { id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0, isCustomGst: false }
   ])
 
   // Discount
@@ -118,7 +119,7 @@ export default function BillingPage() {
   }, [calculatedItems])
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setItems([...items, { id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0, isCustomGst: false }])
   }
 
   const handleRemoveItem = (id: string) => {
@@ -196,14 +197,32 @@ export default function BillingPage() {
       return
     }
 
-    setToast("Bill saved successfully!")
-    setTimeout(() => setToast(""), 3000)
+    const warnings: string[] = []
+    const deductionPromises = calculatedItems.map(async (item) => {
+      if (!item.name || item.qty <= 0) return;
+      const { data: pData } = await supabase.from('products').select('id, current_stock').eq('name', item.name).maybeSingle();
+      if (pData) {
+        if (pData.current_stock >= item.qty) {
+          await supabase.from('products').update({ current_stock: pData.current_stock - item.qty }).eq('id', pData.id)
+        } else {
+          warnings.push(`⚠️ ${item.name} ka stock kam hai`)
+        }
+      }
+    })
+    await Promise.all(deductionPromises)
+
+    if (warnings.length > 0) {
+      setToast(warnings.join(' | '))
+    } else {
+      setToast("Bill saved successfully!")
+    }
+    setTimeout(() => setToast(""), 5000)
 
     // Reset Form
     setCustomerName("")
     setCustomerPhone("")
     setCustomerAddress("")
-    setItems([{ id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setItems([{ id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0, isCustomGst: false }])
     setDiscountPercent(0)
     setPaymentStatus("paid")
     
@@ -406,16 +425,38 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                           />
                         </td>
                         <td className="px-4 py-3 align-top">
-                          <select 
-                            value={item.gstRate}
-                            onChange={(e) => updateItem(item.id, 'gstRate', parseFloat(e.target.value))}
-                            className="h-9 w-full px-2 text-sm rounded border border-border-default bg-white focus:border-primary outline-none appearance-none"
-                          >
-                            <option value="0">0%</option>
-                            <option value="5">5%</option>
-                            <option value="12">12%</option>
-                            <option value="18">18%</option>
-                          </select>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-wrap gap-1">
+                              {[0, 12, 18].map(rate => (
+                                <button
+                                  key={rate}
+                                  onClick={() => {
+                                    updateItem(item.id, 'gstRate', rate)
+                                    updateItem(item.id, 'isCustomGst', false)
+                                  }}
+                                  className={`px-2 py-1 text-xs font-bold rounded border ${!item.isCustomGst && item.gstRate === rate ? 'bg-primary text-white border-primary' : 'bg-white text-text-muted border-border-default hover:border-primary/50'}`}
+                                >
+                                  {rate}%
+                                </button>
+                              ))}
+                              <button
+                                onClick={() => updateItem(item.id, 'isCustomGst', true)}
+                                className={`px-2 py-1 text-xs font-bold rounded border ${item.isCustomGst ? 'bg-primary text-white border-primary' : 'bg-white text-text-muted border-border-default hover:border-primary/50'}`}
+                              >
+                                Custom
+                              </button>
+                            </div>
+                            {item.isCustomGst && (
+                              <input 
+                                type="number"
+                                value={item.gstRate || ''}
+                                onChange={(e) => updateItem(item.id, 'gstRate', parseFloat(e.target.value) || 0)}
+                                className="h-8 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
+                                placeholder="Custom %"
+                                autoFocus
+                              />
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 align-top text-right">
                           <div className="h-9 flex items-center justify-end text-sm font-mono font-medium text-text-main">

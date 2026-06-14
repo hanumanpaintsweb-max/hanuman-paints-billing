@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut } from "lucide-react"
+import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart } from "lucide-react"
 import { logoutAdmin } from "@/app/actions/auth"
 
 export default function Sidebar() {
@@ -14,6 +14,8 @@ export default function Sidebar() {
     { name: "Unpaid Bills", path: "/unpaid", icon: ClockAlert },
     { name: "Customers", path: "/customers", icon: Users },
     { name: "Day Book", path: "/daybook", icon: CalendarDays },
+    { name: "Products", path: "/products", icon: Package },
+    { name: "Stock", path: "/stock", icon: BarChart },
     { name: "Settings", path: "/settings", icon: Settings },
   ]
 
