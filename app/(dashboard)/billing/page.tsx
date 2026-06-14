@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { format } from "date-fns"
 import { supabase } from "@/lib/supabase"
 import { Plus, Trash2, Printer, Save, MessageCircle, AlertCircle, CheckCircle2 } from "lucide-react"
+import { ProductCombobox, Product } from "@/components/ProductCombobox"
 
 interface BillItem {
   id: string;
@@ -44,6 +45,9 @@ export default function BillingPage() {
   // UI State
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState("")
+  
+  // Products from DB
+  const [dbProducts, setDbProducts] = useState<Product[]>([])
 
   const fetchNextBillNumber = async () => {
     const { data } = await supabase
@@ -64,6 +68,16 @@ export default function BillingPage() {
   }
 
   useEffect(() => {
+    const fetchProducts = async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("id, name, unit, category, type")
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+      
+      if (data) setDbProducts(data)
+    }
+    fetchProducts()
     fetchNextBillNumber()
   }, [])
 
@@ -113,6 +127,15 @@ export default function BillingPage() {
 
   const updateItem = (id: string, field: keyof BillItem, value: any) => {
     setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
+  }
+
+  const handleProductSelect = (id: string, name: string, unit?: string) => {
+    setItems(items.map(i => {
+      if (i.id === id) {
+        return { ...i, name, size: unit !== undefined ? unit : i.size }
+      }
+      return i
+    }))
   }
 
   const handleSave = async () => {
@@ -301,7 +324,7 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                 <h3 className="font-semibold text-text-main">Products</h3>
               </div>
               
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto min-h-[300px]">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-surface-container-low text-xs uppercase text-text-muted border-b border-border-default">
                     <tr>
@@ -319,12 +342,10 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                       <tr key={item.id} className="hover:bg-surface-bg transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-2">
-                            <input 
-                              type="text" 
-                              value={item.name}
-                              onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                              className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary focus:ring-1 outline-none"
-                              placeholder="Product name"
+                            <ProductCombobox 
+                              value={item.name} 
+                              onChange={(name, unit) => handleProductSelect(item.id, name, unit)}
+                              products={dbProducts} 
                             />
                             <div className="flex items-center gap-2 mt-1">
                               <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
