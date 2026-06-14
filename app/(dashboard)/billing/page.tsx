@@ -287,15 +287,30 @@ function BillingContent() {
       }
     }
 
-    // Insert bill directly
-    const { data: insertedData, error } = await supabase
-      .from('bills')
-      .insert([billData])
-      .select('id')
-      .single()
+    let insertedData;
+    let saveError;
 
-    if (error) {
-      alert("Error saving bill: " + error.message)
+    if (editId) {
+      const { data, error } = await supabase
+        .from('bills')
+        .update(billData)
+        .eq('id', editId)
+        .select('id')
+        .single()
+      insertedData = data;
+      saveError = error;
+    } else {
+      const { data, error } = await supabase
+        .from('bills')
+        .insert([billData])
+        .select('id')
+        .single()
+      insertedData = data;
+      saveError = error;
+    }
+
+    if (saveError) {
+      alert("Error saving bill: " + saveError.message)
       setLoading(false)
       return null
     }
@@ -360,7 +375,7 @@ function BillingContent() {
   }
 
   const handlePrint = async () => {
-    if (savedBillId) {
+    if (savedBillId && !editId) {
       window.open(`/print/${savedBillId}`, '_blank')
     } else {
       const newId = await handleSave()
@@ -368,18 +383,6 @@ function BillingContent() {
         window.open(`/print/${newId}`, '_blank')
       }
     }
-  }
-
-  const handleWhatsApp = () => {
-    const text = `*Hanuman Paints*
-Bill No: ${billNumber}
-Customer: ${customerName}
-Total: ${formatCurrency(totals.total_amount)}
-Status: ${paymentStatus.toUpperCase()}
-Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
-    
-    const url = `https://wa.me/91${customerPhone}?text=${encodeURIComponent(text)}`
-    window.open(url, '_blank')
   }
 
   return (
@@ -734,26 +737,19 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
               {/* Action Buttons */}
               <div className="flex flex-col gap-3 mt-6">
                 <button 
-                  onClick={handleSave}
+                  onClick={() => handleSave()}
                   disabled={loading}
-                  className="w-full h-12 bg-primary text-white rounded font-bold flex items-center justify-center gap-2 hover:bg-active-blue transition-colors shadow-sm active:scale-[0.98] disabled:opacity-70"
+                  className="w-full h-12 bg-white border border-border-default text-text-main rounded font-bold flex items-center justify-center gap-2 hover:bg-surface-container transition-colors shadow-sm active:scale-[0.98] disabled:opacity-70"
                 >
-                  <Save className="h-5 w-5" /> {loading ? "Saving..." : "Save Bill"}
+                  <Save className="h-5 w-5" /> {loading ? "Saving..." : (editId ? "Save Changes" : "Save Bill")}
                 </button>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={handlePrint}
-                    className="flex-1 h-11 bg-white border border-border-default text-text-main rounded font-medium flex items-center justify-center gap-2 hover:bg-surface-container transition-colors active:scale-[0.98]"
-                  >
-                    <Printer className="h-4 w-4" /> Print
-                  </button>
-                  <button 
-                    onClick={handleWhatsApp}
-                    className="flex-1 h-11 bg-[#25D366] text-white rounded font-medium flex items-center justify-center gap-2 hover:bg-[#20bd5a] transition-colors active:scale-[0.98]"
-                  >
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
-                  </button>
-                </div>
+                <button 
+                  onClick={handlePrint}
+                  disabled={loading}
+                  className="w-full h-12 bg-[#16a34a] text-white rounded font-bold flex items-center justify-center gap-2 hover:bg-[#15803d] transition-colors shadow-sm active:scale-[0.98] disabled:opacity-70"
+                >
+                  <Printer className="h-5 w-5" /> {editId ? "Save Changes & Print" : "Save & Print Bill"}
+                </button>
               </div>
             </div>
 

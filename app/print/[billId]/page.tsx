@@ -54,13 +54,18 @@ export default function PrintPage({
           font-size: 11px;
           background: white;
         }
-        @page { 
-          size: A5 portrait; 
-          margin: 8mm; 
+        @media print {
+          @page { size: 148mm 210mm; margin: 0; } /* Strict A5 Portrait */
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         .bill-page { 
-          width: 100%;
-          page-break-after: always; 
+          width: 148mm;
+          height: 210mm;
+          overflow: hidden;
+          page-break-after: always;
+          padding: 8mm;
+          background: white;
+          position: relative;
         }
         .bill-page:last-child { 
           page-break-after: avoid; 
@@ -104,18 +109,16 @@ export default function PrintPage({
             background: #f0f0f0;
           }
           .bill-page { 
-            background: white;
-            padding: 10mm;
             margin-bottom: 20px;
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            width: 148mm;
-            min-height: 200mm;
+            margin-left: auto;
+            margin-right: auto;
           }
         }
       `}</style>
 
       {pages.map((pageItems, idx) => (
-        <div key={idx} className="bill-page">
+        <div key={idx} className="bill-page mx-auto">
           {/* HEADER */}
           <div style={{ textAlign:'center', borderBottom:'2px solid #000', paddingBottom:'6px', marginBottom:'6px' }}>
             <div style={{ fontSize:'18px', fontWeight:'900', letterSpacing:'1px' }}>
@@ -178,7 +181,7 @@ export default function PrintPage({
           </table>
 
           {/* TOTALS - last page only */}
-          {idx === pages.length - 1 && (
+          {idx === pages.length - 1 ? (
             <div style={{ borderTop:'2px solid #000', paddingTop:'6px' }}>
               <div style={{display:'flex', justifyContent:'space-between', padding:'2px 0'}}>
                 <span>Subtotal:</span>
@@ -221,6 +224,10 @@ export default function PrintPage({
               <div style={{ borderTop:'1px dashed #000', marginTop:'8px', paddingTop:'4px', fontSize:'8px', textAlign:'center' }}>
                 Terms: Goods once sold cannot be returned.
               </div>
+            </div>
+          ) : (
+            <div style={{ position: 'absolute', bottom: '8mm', right: '8mm', fontSize: '10px', fontStyle: 'italic', color: '#555' }}>
+              Continued on next page...
             </div>
           )}
         </div>
