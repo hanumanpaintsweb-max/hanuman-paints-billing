@@ -76,7 +76,7 @@ function BillingContent() {
     const fetchProducts = async () => {
       let { data, error } = await supabase
         .from("products")
-        .select("id, name, unit, category, type, mrp, is_active")
+        .select("id, name, unit, category, type, mrp:base_mrp, is_active")
         .eq("is_active", true)
         .order("name", { ascending: true })
       

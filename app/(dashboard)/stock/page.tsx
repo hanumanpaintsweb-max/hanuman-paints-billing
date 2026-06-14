@@ -25,7 +25,7 @@ export default function StockPage() {
     
     let { data, error } = await supabase
       .from('products')
-      .select('id, name, category, unit, current_stock, is_active, mrp')
+      .select('id, name, category, unit, current_stock, is_active, mrp:base_mrp')
       .eq('is_active', true)
       .order('name')
 
@@ -120,7 +120,7 @@ export default function StockPage() {
       if (p) {
         const updatePayload: any = { current_stock: p.current_stock }
         if (p.mrp !== undefined) {
-          updatePayload.mrp = p.mrp
+          updatePayload.base_mrp = p.mrp
         }
         
         const { error } = await supabase.from('products').update(updatePayload).eq('id', p.id)
