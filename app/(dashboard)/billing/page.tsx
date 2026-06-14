@@ -59,7 +59,7 @@ function BillingContent() {
   const [shopSettings, setShopSettings] = useState({
     shop_name: "HANUMAN PAINTS",
     tagline: "Authorized Dulux Blue Store",
-    address: "Ward No 16, Lohapatty, Madhubani",
+    address: "Ward No 16, Lohapatty, Madhubani, Bihar",
     phone: "8292889540"
   })
 
@@ -92,7 +92,7 @@ function BillingContent() {
         setShopSettings({
           shop_name: data.shop_name?.toUpperCase() || "HANUMAN PAINTS",
           tagline: data.tagline || "Authorized Dulux Blue Store",
-          address: data.address || "Ward No 16, Lohapatty, Madhubani",
+          address: data.address || "Ward No 16, Lohapatty, Madhubani, Bihar",
           phone: data.phone || "8292889540"
         })
       }
@@ -235,7 +235,7 @@ function BillingContent() {
     setPaymentStatus("paid")
     await fetchNextBillNumber()
     if (editId) {
-      router.push('/admin/history') // Go back to history after edit completion
+      router.push('/admin/history')
     } else {
       router.refresh()
     }
@@ -348,8 +348,6 @@ function BillingContent() {
 
     setLoading(false)
 
-    // IMPORTANT: If this is NOT a print action, we reset form immediately. 
-    // If it IS a print action, we let the form stay so window.print() can read the data.
     if (!isPrintAction) {
       await resetForm();
     }
@@ -358,14 +356,11 @@ function BillingContent() {
   }
 
   const handlePrint = async () => {
-    // Save without resetting form
     const successId = await handleSave(true);
 
     if (successId || editId) {
-      // Small delay to ensure React state renders the print container
       setTimeout(() => {
         window.print();
-        // Reset form AFTER print dialog opens/closes
         setTimeout(() => {
           resetForm();
         }, 1500);
@@ -756,152 +751,213 @@ function BillingContent() {
       </div>
 
       {/* --- HIDDEN PRINT TEMPLATE (ONLY VISIBLE ON PRINTER) --- */}
-      <div className="hidden print:block w-full bg-white text-black absolute top-0 left-0 z-50">
+      {/* Absolute container that breaks out of any parent hiding/layout to ensure full page print */}
+      <div className="print-container">
         <style>{`
+          .print-container {
+            display: none;
+          }
           @media print {
+            .print-container {
+              display: block !important;
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 100vw !important;
+              height: 100vh !important;
+              background: white !important;
+              z-index: 999999 !important;
+            }
+            body > *:not(.print-container) {
+              display: none !important;
+            }
             @page { size: 148mm 210mm; margin: 0; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-          }
-          .bill-page { 
-            width: 148mm;
-            height: 210mm;
-            overflow: hidden;
-            page-break-after: always;
-            padding: 8mm;
-            background: white;
-            font-family: Arial, sans-serif;
-            color: black;
-          }
-          .bill-page:last-child { page-break-after: avoid; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #000; padding: 3px 4px; font-size: 10px; }
-          th { background: #000 !important; color: #fff !important; text-align: center; }
-          .text-right { text-align: right; }
-          .text-center { text-align: center; }
-          .bold { font-weight: bold; }
-          .grand-total {
-            font-size: 13px;
-            font-weight: 900;
-            border-top: 2px solid #000;
-            border-bottom: 2px solid #000;
-            padding: 4px 0;
-            margin: 3px 0;
-            display: flex;
-            justify-content: space-between;
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; background: white; }
+            
+            .bill-page { 
+              width: 148mm;
+              height: 209mm;
+              overflow: hidden;
+              page-break-after: always;
+              padding: 10mm;
+              background: white;
+              font-family: Arial, sans-serif;
+              color: black;
+              box-sizing: border-box;
+            }
+            .bill-page:last-child { page-break-after: avoid; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }
+            th { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 6px 4px; text-align: left; font-size: 11px; font-weight: bold; }
+            td { padding: 6px 4px; font-size: 11px; border: none; }
+            
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .font-bold { font-weight: bold; }
+            
+            .totals-container {
+              display: flex;
+              justify-content: flex-end;
+              margin-top: 15px;
+            }
+            .totals-box {
+              width: 60%;
+            }
+            .totals-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 4px 0;
+              font-size: 11px;
+            }
+            .grand-total-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 8px 0;
+              font-size: 13px;
+              font-weight: bold;
+              border-top: 1px solid #000;
+              margin-top: 4px;
+            }
           }
         `}</style>
 
         {pages.map((pageItems, idx) => (
           <div key={idx} className="bill-page mx-auto">
-            {/* HEADER */}
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
-              <div style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '1px' }}>
+
+            {/* HEADER (Centered) */}
+            <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                 {shopSettings.shop_name}
               </div>
-              <div>{shopSettings.tagline}</div>
-              <div>{shopSettings.address}</div>
-              <div>Ph: {shopSettings.phone}</div>
+              <div style={{ fontSize: '11px', marginTop: '2px' }}>{shopSettings.tagline}</div>
+              <div style={{ fontSize: '11px' }}>{shopSettings.address}</div>
+              <div style={{ fontSize: '11px' }}>Ph: {shopSettings.phone}</div>
             </div>
 
-            {/* BILL INFO */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '4px', fontSize: '11px' }}>
-              <span>Bill No: <strong>{billNumber}</strong></span>
-              <span>Date: <strong>{new Date(billDate).toLocaleDateString('en-IN')}</strong></span>
+            {/* TAX INVOICE TITLE */}
+            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>TAX INVOICE</div>
+              <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '2px' }}>Bill: {billNumber}</div>
             </div>
 
-            {/* CUSTOMER */}
-            <div style={{ borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '6px', fontSize: '11px' }}>
-              <div>Customer: <strong>{customerName}</strong></div>
-              <div>Phone: {customerPhone}</div>
-              {customerAddress && <div>{customerAddress}</div>}
+            <div style={{ borderTop: '1px solid #000', marginBottom: '8px' }}></div>
+
+            {/* CUSTOMER & DATE INFO */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '8px' }}>
+              <div>
+                <div>Bill To: {customerName}</div>
+                <div style={{ marginTop: '2px' }}>Phone: {customerPhone}</div>
+              </div>
+              <div>
+                Date: {new Date(billDate).toLocaleDateString('en-IN')}
+              </div>
             </div>
 
-            {/* ITEMS TABLE */}
-            <table style={{ marginBottom: '6px' }}>
+            {/* ITEMS TABLE (Clean horizontal lines only) */}
+            <table>
               <thead>
                 <tr>
                   <th style={{ width: '8%' }}>S.No</th>
-                  <th style={{ width: '36%', textAlign: 'left' }}>Item</th>
-                  <th style={{ width: '12%' }}>Size</th>
-                  <th style={{ width: '8%' }}>Qty</th>
-                  <th style={{ width: '18%' }}>Rate</th>
-                  <th style={{ width: '18%' }}>Total</th>
+                  <th style={{ width: '38%' }}>Item</th>
+                  <th style={{ width: '12%', textAlign: 'center' }}>Size</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Qty</th>
+                  <th style={{ width: '16%', textAlign: 'center' }}>Price</th>
+                  <th style={{ width: '16%', textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody style={{ borderBottom: '1px solid #000' }}>
                 {pageItems.map((item: any, i: number) => (
                   <Fragment key={item.id}>
                     <tr>
-                      <td className="text-center">{idx * ITEMS_PER_PAGE + i + 1}</td>
+                      <td>{idx * ITEMS_PER_PAGE + i + 1}</td>
                       <td>{item.name}</td>
                       <td className="text-center">{item.size}</td>
                       <td className="text-center">{item.qty}</td>
-                      <td className="text-right">₹{Number(item.rate).toFixed(2)}</td>
-                      <td className="text-right">₹{Number(item.itemSub).toFixed(2)}</td>
+                      <td className="text-center">{item.rate > 0 ? item.rate : ''}</td>
+                      <td className="text-right">{item.itemSub > 0 ? item.itemSub.toFixed(2) : ''}</td>
                     </tr>
                     {item.hasColorant && (
                       <tr>
                         <td></td>
-                        <td colSpan={5} style={{ fontSize: '9px', color: '#555' }}>
-                          └ Color: {item.colorCode} {item.base && ` | Base: ${item.base}`} | Colorant: ₹{item.colorantCost}
+                        <td colSpan={5} style={{ paddingLeft: '8px', fontSize: '10px', color: '#333', paddingBottom: '8px' }}>
+                          <div>└ Color Code: {item.colorCode}</div>
+                          {item.base && <div>└ Base: {item.base}</div>}
+                          <div>└ Colorant: ₹{Number(item.colorantCost).toFixed(2)}</div>
                         </td>
                       </tr>
                     )}
                   </Fragment>
                 ))}
+                {/* Empty spacer row to ensure the border-bottom looks clean */}
+                <tr><td colSpan={6} style={{ padding: '2px' }}></td></tr>
               </tbody>
             </table>
 
             {/* TOTALS - last page only */}
             {idx === pages.length - 1 ? (
-              <div style={{ borderTop: '2px solid #000', paddingTop: '6px', fontSize: '11px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                  <span>Subtotal:</span>
-                  <span>₹{Number(totals.subtotal).toFixed(2)}</span>
-                </div>
-                {Number(totals.discount_amount) > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                    <span>Discount:</span>
-                    <span>-₹{Number(totals.discount_amount).toFixed(2)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px' }}>
+
+                {/* Left side empty space to push totals to right */}
+                <div style={{ width: '40%' }}></div>
+
+                {/* Right side totals box */}
+                <div style={{ width: '60%', paddingLeft: '20px' }}>
+                  <div className="totals-row">
+                    <span>Subtotal:</span>
+                    <span>₹{Number(totals.subtotal).toFixed(2)}</span>
                   </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                  <span>Taxable:</span>
-                  <span>₹{Number(totals.taxable_value).toFixed(2)}</span>
-                </div>
-                {Number(totals.cgst_amount) > 0 && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span>CGST:</span>
-                      <span>+₹{Number(totals.cgst_amount).toFixed(2)}</span>
+
+                  {Number(totals.discount_amount) > 0 && (
+                    <div className="totals-row">
+                      <span>Discount (-):</span>
+                      <span>₹{Number(totals.discount_amount).toFixed(2)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span>SGST:</span>
-                      <span>+₹{Number(totals.sgst_amount).toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-                <div className="grand-total">
-                  <span>GRAND TOTAL:</span>
-                  <span>₹{Number(totals.total_amount).toFixed(2)}</span>
-                </div>
-                <div className="bold" style={{ padding: '2px 0' }}>
-                  Payment: {paymentStatus.toUpperCase()}
-                </div>
-                {billType === 'DPL' && (
-                  <div style={{ fontSize: '8px', marginTop: '4px' }}>
-                    * Dealer Price List
+                  )}
+
+                  <div className="totals-row">
+                    <span>Taxable Value:</span>
+                    <span>₹{Number(totals.taxable_value).toFixed(2)}</span>
                   </div>
-                )}
-                <div style={{ borderTop: '1px dashed #000', marginTop: '8px', paddingTop: '4px', fontSize: '8px', textAlign: 'center' }}>
-                  Terms: Goods once sold cannot be returned.
+
+                  {Number(totals.cgst_amount) > 0 && (
+                    <>
+                      <div className="totals-row">
+                        <span>CGST:</span>
+                        <span>₹{Number(totals.cgst_amount).toFixed(2)}</span>
+                      </div>
+                      <div className="totals-row">
+                        <span>SGST:</span>
+                        <span>₹{Number(totals.sgst_amount).toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="grand-total-row">
+                    <span>GRAND TOTAL:</span>
+                    <span>₹{Number(totals.total_amount).toFixed(2)}</span>
+                  </div>
+
+                  <div className="totals-row" style={{ marginTop: '10px', fontWeight: 'bold' }}>
+                    <span>Payment:</span>
+                    <span>{paymentStatus.toUpperCase()}</span>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div style={{ position: 'absolute', bottom: '8mm', right: '8mm', fontSize: '10px', fontStyle: 'italic', color: '#555' }}>
+              <div style={{ textAlign: 'right', fontSize: '10px', fontStyle: 'italic', marginTop: '10px' }}>
                 Continued on next page...
               </div>
             )}
+
+            {/* FOOTER - Always at the bottom */}
+            {idx === pages.length - 1 && (
+              <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '9px' }}>
+                <div style={{ borderTop: '1px dashed #000', marginBottom: '8px', width: '80%', margin: '0 auto 8px auto' }}></div>
+                <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>Terms & Conditions</div>
+                <div>Goods once sold cannot be returned.</div>
+              </div>
+            )}
+
           </div>
         ))}
       </div>
