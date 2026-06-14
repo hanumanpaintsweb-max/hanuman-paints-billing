@@ -699,14 +699,13 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
         <style type="text/css" media="print">
           {`
             @page {
-              size: A4 portrait;
-              margin: 6mm;
+              size: A5 portrait;
+              margin: 8mm;
             }
             .bill-page {
-              width: 190mm;
-              max-height: 140mm;
+              width: 100%;
+              min-height: auto;
               page-break-after: always;
-              overflow: hidden;
             }
             .bill-page:last-child {
               page-break-after: avoid;
