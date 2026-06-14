@@ -716,217 +716,159 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
         </div>
       </div>
 
-      {/* Print Overlay (Only visible during print) */}
-      <div className="hidden print:flex flex-col items-center w-full bg-white text-black font-sans">
+      {/* Print Overlay */}
+      <div id="bill-print" className="hidden print:block">
         <style type="text/css" media="print">
           {`
             @page {
               size: A5 portrait;
-              margin: 6mm;
+              margin: 8mm;
             }
-            * {
-              -webkit-print-color-adjust: exact;
-            }
-            .bill-page {
-              width: 148mm;
-              min-height: 205mm;
-              display: flex;
-              flex-direction: column;
-              font-family: Arial, sans-serif;
-              font-size: 11px;
-              page-break-after: always;
-            }
-            .bill-page:last-child {
-              page-break-after: avoid;
-            }
-            .bill-header {
-              text-align: center;
-              border-bottom: 2px solid black;
-              padding-bottom: 4px;
-              margin-bottom: 4px;
-            }
-            .bill-header h1 { 
-              font-size: 18px; 
-              font-weight: 900;
-              margin: 0;
-              letter-spacing: 1px;
-            }
-            .bill-header h2 { 
-              font-size: 11px;
-              margin: 2px 0;
-            }
-            .bill-info {
-              display: flex;
-              justify-content: space-between;
-              border-bottom: 1px solid black;
-              padding: 3px 0;
-              font-size: 10px;
-            }
-            .customer-info {
-              border-bottom: 1px solid black;
-              padding: 3px 0;
-              font-size: 10px;
-            }
-            .print-table {
+            body * { visibility: hidden; }
+            #bill-print { visibility: visible; }
+            #bill-print * { visibility: visible; }
+            #bill-print {
+              position: absolute;
+              top: 0;
+              left: 0;
               width: 100%;
-              border-collapse: collapse;
-              flex: 1;
-            }
-            .print-table th {
-              background: #000;
-              color: #fff;
-              padding: 3px 2px;
-              font-size: 9px;
-              text-align: center;
-              border: 1px solid black;
-            }
-            .print-table td {
-              padding: 4px 2px;
-              border: 1px solid black;
-              font-size: 10px;
-              vertical-align: top;
-            }
-            .totals {
-              border-top: 2px solid black;
-              margin-top: 4px;
-              padding-top: 4px;
-            }
-            .total-row {
-              display: flex;
-              justify-content: space-between;
-              font-size: 10px;
-              padding: 1px 0;
-            }
-            .grand-total {
-              display: flex;
-              justify-content: space-between;
-              font-size: 14px;
-              font-weight: 900;
-              border-top: 2px solid black;
-              border-bottom: 2px solid black;
-              padding: 3px 0;
-              margin: 3px 0;
-            }
-            .footer {
-              margin-top: auto;
-              border-top: 1px dashed black;
-              padding-top: 3px;
-              font-size: 8px;
-              text-align: center;
             }
           `}
         </style>
 
-        {printChunks.map((chunk, pageIndex) => (
-          <div key={pageIndex} className="bill-page bg-white text-black">
+        {printChunks.map((pageItems, idx) => (
+          <div key={idx} style={{
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '11px',
+            pageBreakAfter: idx < printChunks.length - 1 ? 'always' : 'avoid',
+            padding: '4px'
+          }}>
             
-            {/* Header always */}
-            <div className="bill-header">
-              <h1>HANUMAN PAINTS</h1>
-              <h2>Authorized Dulux Blue Store, Lohapatty, Madhubani Ph:8292889540</h2>
-              <h2>{billType === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}</h2>
-            </div>
-            
-            <div className="bill-info">
-              <span><b>Bill:</b> {billNumber}</span>
-              <span><b>Dt:</b> {format(new Date(billDate), 'dd/MM/yyyy')}</span>
+            {/* HEADER */}
+            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
+              <div style={{ fontSize: '20px', fontWeight: '900', letterSpacing: '2px' }}>
+                HANUMAN PAINTS
+              </div>
+              <div>Authorized Dulux Blue Store</div>
+              <div>Ward No 16, Lohapatty, Madhubani</div>
+              <div>Ph: 8292889540</div>
             </div>
 
-            {/* CustomerInfo */}
-            <div className="customer-info">
-              <div className="flex justify-between">
-                <div>
-                  <div><b>Customer:</b> {customerName}</div>
-                  <div><b>Phone:</b> {customerPhone}</div>
-                  {customerAddress && <div><b>Address:</b> {customerAddress}</div>}
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div>Page: {pageIndex + 1} of {printChunks.length}</div>
-                </div>
+            {/* BILL INFO */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', padding: '4px 0', marginBottom: '4px' }}>
+              <div>
+                <strong>{billType === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}</strong>
+              </div>
+              <div>
+                Bill No: <strong>{billNumber}</strong>
+              </div>
+              <div>
+                Date: <strong>{format(new Date(billDate), 'dd/MM/yyyy')}</strong>
               </div>
             </div>
 
-            {/* ItemsTable */}
-            <table className="print-table">
+            {/* CUSTOMER */}
+            <div style={{ borderBottom: '1px solid #000', padding: '4px 0', marginBottom: '6px' }}>
+              <div><strong>Customer:</strong> {customerName}</div>
+              <div><strong>Phone:</strong> {customerPhone}</div>
+              {customerAddress && <div><strong>Address:</strong> {customerAddress}</div>}
+            </div>
+
+            {/* ITEMS TABLE */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
               <thead>
-                <tr>
-                  <th style={{ width: '8%' }}>S.No</th>
-                  <th style={{ width: '40%', textAlign: 'left' }}>Item Description</th>
-                  <th style={{ width: '12%' }}>Size</th>
-                  <th style={{ width: '8%' }}>Qty</th>
-                  <th style={{ width: '16%', textAlign: 'right' }}>Rate</th>
-                  <th style={{ width: '16%', textAlign: 'right' }}>Total</th>
+                <tr style={{ background: '#000', color: '#fff' }}>
+                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '8%', textAlign: 'center' }}>S.No</th>
+                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '38%', textAlign: 'left' }}>Item</th>
+                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '12%', textAlign: 'center' }}>Size</th>
+                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '8%', textAlign: 'center' }}>Qty</th>
+                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '17%', textAlign: 'right' }}>Rate</th>
+                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '17%', textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
-                {chunk.map((item, idx) => (
-                  <Fragment key={item.id}>
+                {pageItems.map((item, i) => (
+                  <Fragment key={i}>
                     <tr>
-                      <td style={{ textAlign: 'center' }}>{pageIndex * ITEMS_PER_PAGE + idx + 1}</td>
-                      <td>
+                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{idx * ITEMS_PER_PAGE + i + 1}</td>
+                      <td style={{ padding: '4px 2px', border: '1px solid #000' }}>
                         <div style={{ fontWeight: 'bold' }}>{item.name}</div>
-                        {item.base && <div style={{ fontSize: '10px', color: '#666' }}>Base: {item.base}</div>}
+                        {item.base && <div style={{ fontSize: '9px', color: '#555' }}>Base: {item.base}</div>}
                         {item.hasColorant && item.colorantCost > 0 && (
-                          <div style={{ fontSize: '10px', color: '#666' }}>
+                          <div style={{ fontSize: '9px', color: '#555' }}>
                             + Colorant: {item.colorCode || 'Custom'} (₹{item.colorantCost.toFixed(2)})
                           </div>
                         )}
                       </td>
-                      <td style={{ textAlign: 'center' }}>{item.size}</td>
-                      <td style={{ textAlign: 'center' }}>{item.qty}</td>
-                      <td style={{ textAlign: 'right' }}>{item.rate.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{item.itemSub.toFixed(2)}</td>
+                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.size}</td>
+                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.qty}</td>
+                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>
+                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.itemSub.toFixed(2)}</td>
                     </tr>
                   </Fragment>
                 ))}
               </tbody>
             </table>
-            
-            {/* Totals only on last page */}
-            {pageIndex === printChunks.length - 1 && (
-              <div className="totals">
-                <div className="total-row">
+
+            {/* TOTALS - only last page */}
+            {idx === printChunks.length - 1 && (
+              <div style={{ borderTop: '2px solid #000', paddingTop: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
                   <span>Subtotal:</span>
                   <span>₹{totals.subtotal.toFixed(2)}</span>
                 </div>
-                {totals.discount_amount > 0 && (
-                  <div className="total-row">
-                    <span>Discount (-):</span>
-                    <span>₹{totals.discount_amount.toFixed(2)}</span>
+
+                {totals.totalColorant > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                    <span>Colorant Total:</span>
+                    <span>+₹{totals.totalColorant.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="total-row">
-                  <span>Taxable:</span>
+
+                {totals.discount_amount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                    <span>Discount:</span>
+                    <span>-₹{totals.discount_amount.toFixed(2)}</span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                  <span>Taxable Value:</span>
                   <span>₹{totals.taxable_value.toFixed(2)}</span>
                 </div>
+
                 {totals.cgst_amount > 0 && (
                   <>
-                    <div className="total-row">
-                      <span>CGST ({globalGst === "" ? 0 : globalGst}%):</span>
-                      <span>₹{totals.cgst_amount.toFixed(2)}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>CGST:</span>
+                      <span>+₹{totals.cgst_amount.toFixed(2)}</span>
                     </div>
-                    <div className="total-row">
-                      <span>SGST ({globalGst === "" ? 0 : globalGst}%):</span>
-                      <span>₹{totals.sgst_amount.toFixed(2)}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>SGST:</span>
+                      <span>+₹{totals.sgst_amount.toFixed(2)}</span>
                     </div>
                   </>
                 )}
-                <div className="grand-total">
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #000', borderBottom: '2px solid #000', padding: '4px 0', margin: '4px 0', fontSize: '14px', fontWeight: '900' }}>
                   <span>GRAND TOTAL:</span>
                   <span>₹{totals.total_amount.toFixed(2)}</span>
                 </div>
-                <div className="total-row" style={{ fontWeight: 'bold' }}>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontWeight: 'bold' }}>
                   <span>Payment Status:</span>
-                  <span style={{ textTransform: 'uppercase' }}>{paymentStatus}</span>
+                  <span>{paymentStatus.toUpperCase()}</span>
+                </div>
+
+                {billType === 'DPL' && (
+                  <div style={{ fontSize: '8px', marginTop: '4px' }}>* Prices as per Dealer Price List</div>
+                )}
+
+                <div style={{ borderTop: '1px dashed #000', marginTop: '8px', paddingTop: '4px', fontSize: '8px', textAlign: 'center' }}>
+                  Terms: Goods once sold cannot be returned.<br />Thank you for your business!
                 </div>
               </div>
             )}
-            
-            {/* Footer */}
-            <div className="footer">
-              <b>Terms:</b> Goods once sold cannot be returned.
-              {billType === 'DPL' && <div><b>* Dealer Price List</b></div>}
-            </div>
           </div>
         ))}
       </div>
