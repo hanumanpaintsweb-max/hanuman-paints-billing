@@ -118,7 +118,12 @@ export default function StockPage() {
     const promises = Array.from(modifiedIds).map(async (id) => {
       const p = products.find(prod => prod.id === id)
       if (p) {
-        const { error } = await supabase.from('products').update({ mrp: p.mrp, current_stock: p.current_stock }).eq('id', p.id)
+        const updatePayload: any = { current_stock: p.current_stock }
+        if (p.mrp !== undefined) {
+          updatePayload.mrp = p.mrp
+        }
+        
+        const { error } = await supabase.from('products').update(updatePayload).eq('id', p.id)
         if (error) {
            console.error("Failed to update", p.name, error)
            hasError = true
