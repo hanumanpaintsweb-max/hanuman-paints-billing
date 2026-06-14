@@ -152,7 +152,13 @@ function BillingContent() {
 
   const totals = useMemo(() => {
     let subtotal = 0;
-    calculatedItems.forEach(item => subtotal += item.itemSub)
+    let totalColorant = 0;
+    calculatedItems.forEach(item => {
+      subtotal += item.itemSub
+      if (item.hasColorant) {
+        totalColorant += item.colorantCost
+      }
+    })
     
     const discount_amount = Math.max(0, subtotal * (discountPercent / 100))
     const taxable_value = Math.max(0, subtotal - discount_amount)
@@ -163,6 +169,7 @@ function BillingContent() {
 
     return {
       subtotal: Math.max(0, subtotal),
+      totalColorant: Math.max(0, totalColorant),
       discount_amount: Math.max(0, discount_amount),
       taxable_value: Math.max(0, taxable_value),
       cgst_amount: Math.max(0, gst_total / 2),
@@ -655,6 +662,12 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                   <span>Subtotal</span>
                   <span className="font-mono">{formatCurrency(totals.subtotal)}</span>
                 </div>
+                {totals.totalColorant > 0 && (
+                  <div className="flex justify-between items-center text-sm text-text-muted animate-in fade-in">
+                    <span>Colorant Total</span>
+                    <span className="font-mono text-primary">+{formatCurrency(totals.totalColorant)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-sm text-text-muted">
                   <span>Discount</span>
                   <span className="font-mono text-error">-{formatCurrency(totals.discount_amount)}</span>
@@ -850,21 +863,20 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                   <Fragment key={item.id}>
                     <tr>
                       <td style={{ textAlign: 'center' }}>{pageIndex * ITEMS_PER_PAGE + idx + 1}</td>
-                      <td>{item.name} {item.base && `| Base: ${item.base}`}</td>
+                      <td>
+                        <div style={{ fontWeight: 'bold' }}>{item.name}</div>
+                        {item.base && <div style={{ fontSize: '10px', color: '#666' }}>Base: {item.base}</div>}
+                        {item.hasColorant && item.colorantCost > 0 && (
+                          <div style={{ fontSize: '10px', color: '#666' }}>
+                            + Colorant: {item.colorCode || 'Custom'} (₹{item.colorantCost.toFixed(2)})
+                          </div>
+                        )}
+                      </td>
                       <td style={{ textAlign: 'center' }}>{item.size}</td>
                       <td style={{ textAlign: 'center' }}>{item.qty}</td>
                       <td style={{ textAlign: 'right' }}>{item.rate.toFixed(2)}</td>
                       <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{item.itemSub.toFixed(2)}</td>
                     </tr>
-                    {item.hasColorant && (
-                      <tr>
-                        <td></td>
-                        <td style={{ paddingLeft: '8px', fontSize: '9px', color: '#444' }}>
-                          └ Color: {item.colorCode} | Colorant: ₹{item.colorantCost.toFixed(2)}
-                        </td>
-                        <td colSpan={4}></td>
-                      </tr>
-                    )}
                   </Fragment>
                 ))}
               </tbody>
