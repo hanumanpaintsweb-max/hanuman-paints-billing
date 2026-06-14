@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from "react"
 import { format } from "date-fns"
 import { supabase } from "@/lib/supabase"
-import { Plus, Trash2, Printer, Save, MessageCircle, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Plus, Trash2, Printer, Save, MessageCircle, CheckCircle2 } from "lucide-react"
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
 import { useSearchParams, useRouter } from "next/navigation"
 
@@ -11,13 +11,12 @@ interface BillItem {
   id: string;
   name: string;
   size: string;
+  base: string;
   qty: number;
   price: number;
-  gstRate: number;
   hasColorant: boolean;
   colorCode: string;
   colorantCost: number;
-  isCustomGst?: boolean;
 }
 
 function BillingContent() {
@@ -37,16 +36,16 @@ function BillingContent() {
 
   // Products
   const [items, setItems] = useState<BillItem[]>([
-    { id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0, isCustomGst: false }
+    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
   ])
 
-  // Discount
+  // Global Financial Modifiers
   const [discountPercent, setDiscountPercent] = useState<number>(0)
+  const [globalGst, setGlobalGst] = useState<number | "">("")
 
   // Payment
   const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid">("paid")
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "both">("cash")
-  const [dueDate, setDueDate] = useState("")
 
   // UI State
   const [loading, setLoading] = useState(false)
@@ -56,7 +55,6 @@ function BillingContent() {
   const [dbProducts, setDbProducts] = useState<Product[]>([])
 
   const fetchNextBillNumber = async () => {
-    // Explicitly bypass cache by using a dummy query parameter or just count exact
     const { data } = await supabase
       .from("bills")
       .select("bill_number")
@@ -94,10 +92,32 @@ function BillingContent() {
           setCustomerName(data.customer_name)
           setCustomerPhone(data.customer_phone)
           setCustomerAddress(data.customer_address || "")
-          setItems(data.items || [])
+          
+          // Re-map items in case old bills don't have 'base' property or have legacy GST
+          const loadedItems = (data.items || []).map((i: any) => ({
+            id: i.id || Date.now().toString(),
+            name: i.name || "",
+            size: i.size || "",
+            base: i.base || "",
+            qty: i.qty || 1,
+            price: i.price || 0,
+            hasColorant: i.hasColorant || false,
+            colorCode: i.colorCode || "",
+            colorantCost: i.colorantCost || 0
+          }))
+          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+
           if (data.subtotal && data.subtotal > 0 && data.discount_amount) {
             setDiscountPercent((data.discount_amount / data.subtotal) * 100)
           }
+          
+          // Reverse-calculate global GST percent if cgst/sgst exists
+          if (data.taxable_value && data.taxable_value > 0 && data.cgst_amount) {
+            const gst_total = (data.cgst_amount + data.sgst_amount)
+            const computedGst = Math.round((gst_total / data.taxable_value) * 100)
+            setGlobalGst(computedGst > 0 ? computedGst : "")
+          }
+
           setPaymentStatus(data.payment_status)
           setPaymentMethod(data.payment_method || 'cash')
           setBillType(data.bill_type)
@@ -112,28 +132,23 @@ function BillingContent() {
   // Calculations
   const calculatedItems = useMemo(() => {
     return items.map(item => {
-      const base = Math.max(0, item.qty * item.price)
+      const basePrice = Math.max(0, item.qty * item.price)
       const colorant = Math.max(0, item.hasColorant ? item.colorantCost : 0)
-      const itemSub = Math.max(0, base + colorant)
-      const disc = Math.max(0, itemSub * (discountPercent / 100))
-      const taxable = Math.max(0, itemSub - disc)
-      const gst = Math.max(0, taxable * (item.gstRate / 100))
-      const total = Math.max(0, taxable + gst)
-
-      return { ...item, base, colorant, itemSub, disc, taxable, gst, total }
+      const itemSub = Math.max(0, basePrice + colorant)
+      return { ...item, basePrice, colorant, itemSub }
     })
-  }, [items, discountPercent])
+  }, [items])
 
   const totals = useMemo(() => {
-    let subtotal = 0, discount_amount = 0, taxable_value = 0, gst_total = 0, total_amount = 0;
+    let subtotal = 0;
+    calculatedItems.forEach(item => subtotal += item.itemSub)
     
-    calculatedItems.forEach(item => {
-      subtotal += item.itemSub
-      discount_amount += item.disc
-      taxable_value += item.taxable
-      gst_total += item.gst
-      total_amount += item.total
-    })
+    const discount_amount = Math.max(0, subtotal * (discountPercent / 100))
+    const taxable_value = Math.max(0, subtotal - discount_amount)
+    
+    const gstRate = globalGst === "" ? 0 : Number(globalGst)
+    const gst_total = Math.max(0, taxable_value * (gstRate / 100))
+    const total_amount = Math.max(0, taxable_value + gst_total)
 
     return {
       subtotal: Math.max(0, subtotal),
@@ -143,10 +158,10 @@ function BillingContent() {
       sgst_amount: Math.max(0, gst_total / 2),
       total_amount: Math.max(0, Math.round(total_amount)) // rounding final total
     }
-  }, [calculatedItems])
+  }, [calculatedItems, discountPercent, globalGst])
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0, isCustomGst: false }])
+    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
   }
 
   const handleRemoveItem = (id: string) => {
@@ -198,10 +213,6 @@ function BillingContent() {
       staff_name: 'Admin'
     }
 
-    // If we are in edit mode, the standard save_bill_with_ledger will insert a duplicate or fail.
-    // If the DB allows duplicates, we probably should logically delete the old one or warn user.
-    // Assuming simple insertion for prefilled template.
-    
     let ledgerData = null;
     if (paymentStatus === 'unpaid') {
       ledgerData = {
@@ -212,17 +223,15 @@ function BillingContent() {
         description: 'Bill ' + billNumber,
         date: billDate,
         status: 'pending',
-        due_date: dueDate || billDate,
+        due_date: null, // Due date removed per request
         bill_number: billNumber
       }
     }
 
     // Insert bill directly
-    const { data: savedBill, error } = await supabase
+    const { error } = await supabase
       .from('bills')
       .insert([billData])
-      .select()
-      .single()
 
     if (error) {
       alert("Error saving bill: " + error.message)
@@ -266,8 +275,9 @@ function BillingContent() {
     setCustomerName("")
     setCustomerPhone("")
     setCustomerAddress("")
-    setItems([{ id: Date.now().toString(), name: "", size: "", qty: 1, price: 0, gstRate: 0, hasColorant: false, colorCode: "", colorantCost: 0, isCustomGst: false }])
+    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
     setDiscountPercent(0)
+    setGlobalGst("")
     setPaymentStatus("paid")
     
     // DB se fresh fetch karo bill number ke liye
@@ -397,10 +407,9 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                   <thead className="bg-surface-container-low text-xs uppercase text-text-muted border-b border-border-default">
                     <tr>
                       <th className="px-4 py-3 font-semibold min-w-[200px]">Product Name</th>
-                      <th className="px-4 py-3 font-semibold w-24">Size</th>
+                      <th className="px-4 py-3 font-semibold w-32">Size & Base</th>
                       <th className="px-4 py-3 font-semibold w-24">Qty</th>
                       <th className="px-4 py-3 font-semibold w-32 text-right">Price/Unit</th>
-                      <th className="px-4 py-3 font-semibold w-24">GST %</th>
                       <th className="px-4 py-3 font-semibold text-right">Total</th>
                       <th className="px-4 py-3 w-12"></th>
                     </tr>
@@ -408,7 +417,8 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                   <tbody className="divide-y divide-border-default">
                     {calculatedItems.map((item, idx) => (
                       <tr key={item.id} className="hover:bg-surface-bg transition-colors">
-                        <td className="px-4 py-3">
+                        {/* Name Column */}
+                        <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col gap-2">
                             <ProductCombobox 
                               value={item.name} 
@@ -439,80 +449,65 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                                   type="number" 
                                   value={item.colorantCost || ''}
                                   onChange={(e) => updateItem(item.id, 'colorantCost', parseFloat(e.target.value) || 0)}
-                                  className="h-8 w-24 px-2 text-xs rounded border border-border-default focus:border-primary outline-none"
+                                  className="h-8 w-24 px-2 text-xs rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   placeholder="Cost ₹"
                                 />
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 align-top">
-                          <input 
-                            type="text" 
-                            value={item.size}
-                            onChange={(e) => updateItem(item.id, 'size', e.target.value)}
-                            className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
-                            placeholder="e.g. 1L"
-                          />
+
+                        {/* Size & Base Column */}
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex flex-col gap-2">
+                            <input 
+                              type="text" 
+                              value={item.size}
+                              onChange={(e) => updateItem(item.id, 'size', e.target.value)}
+                              className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
+                              placeholder="Size e.g. 1L"
+                            />
+                            <input 
+                              type="text" 
+                              value={item.base}
+                              onChange={(e) => updateItem(item.id, 'base', e.target.value)}
+                              className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
+                              placeholder="Base (Opt)"
+                            />
+                          </div>
                         </td>
-                        <td className="px-4 py-3 align-top">
+
+                        {/* Qty Column */}
+                        <td className="px-4 py-3 align-middle">
                           <input 
                             type="number" 
                             min="1"
                             value={item.qty || ''}
                             onChange={(e) => updateItem(item.id, 'qty', parseInt(e.target.value) || 0)}
-                            className="h-9 w-full px-2 text-sm text-center rounded border border-border-default focus:border-primary outline-none"
+                            className="h-9 w-full px-2 text-sm text-center rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
+
+                        {/* Price Column */}
+                        <td className="px-4 py-3 align-middle">
                           <input 
                             type="number" 
                             value={item.price || ''}
                             onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
-                            className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none"
+                            className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder="0.00"
                           />
                         </td>
-                        <td className="px-4 py-3 align-top">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex flex-wrap gap-1">
-                              {[0, 12, 18].map(rate => (
-                                <button
-                                  key={rate}
-                                  onClick={() => {
-                                    updateItem(item.id, 'gstRate', rate)
-                                    updateItem(item.id, 'isCustomGst', false)
-                                  }}
-                                  className={`px-2 py-1 text-xs font-bold rounded border ${!item.isCustomGst && item.gstRate === rate ? 'bg-primary text-white border-primary' : 'bg-white text-text-muted border-border-default hover:border-primary/50'}`}
-                                >
-                                  {rate}%
-                                </button>
-                              ))}
-                              <button
-                                onClick={() => updateItem(item.id, 'isCustomGst', true)}
-                                className={`px-2 py-1 text-xs font-bold rounded border ${item.isCustomGst ? 'bg-primary text-white border-primary' : 'bg-white text-text-muted border-border-default hover:border-primary/50'}`}
-                              >
-                                Custom
-                              </button>
-                            </div>
-                            {item.isCustomGst && (
-                              <input 
-                                type="number"
-                                value={item.gstRate || ''}
-                                onChange={(e) => updateItem(item.id, 'gstRate', parseFloat(e.target.value) || 0)}
-                                className="h-8 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
-                                placeholder="Custom %"
-                                autoFocus
-                              />
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 align-top text-right">
+
+                        {/* Total Column */}
+                        <td className="px-4 py-3 align-middle text-right">
                           <div className="h-9 flex items-center justify-end text-sm font-mono font-medium text-text-main">
-                            {formatCurrency(item.total)}
+                            {formatCurrency(item.itemSub)}
                           </div>
                         </td>
-                        <td className="px-4 py-3 align-top text-center">
+
+                        {/* Remove Action Column */}
+                        <td className="px-4 py-3 align-middle text-center">
                           {items.length > 1 && (
                             <button 
                               onClick={() => handleRemoveItem(item.id)}
@@ -542,35 +537,6 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
           {/* Sidebar Right Column */}
           <div className="xl:col-span-4 flex flex-col gap-6">
             
-            {/* Discount Card */}
-            <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
-              <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Discount</h3>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {[0, 5, 10, 15].map(pct => (
-                  <button 
-                    key={pct}
-                    onClick={() => setDiscountPercent(pct)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
-                      discountPercent === pct 
-                        ? 'bg-primary text-white border-primary' 
-                        : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
-                    }`}
-                  >
-                    {pct}%
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-text-muted">Custom %:</span>
-                <input 
-                  type="number" 
-                  value={discountPercent || ''}
-                  onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                  className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right"
-                />
-              </div>
-            </div>
-
             {/* Payment Card */}
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Payment Details</h3>
@@ -607,18 +573,64 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                   </select>
                 </div>
               )}
+            </div>
 
-              {paymentStatus === 'unpaid' && (
-                <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
-                  <label className="text-sm text-text-muted">Due Date</label>
-                  <input 
-                    type="date" 
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="h-10 w-full px-3 rounded border border-border-default focus:border-primary outline-none"
-                  />
-                </div>
-              )}
+            {/* Discount Card */}
+            <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
+              <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Discount</h3>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[0, 5, 10, 15].map(pct => (
+                  <button 
+                    key={pct}
+                    onClick={() => setDiscountPercent(pct)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
+                      discountPercent === pct 
+                        ? 'bg-primary text-white border-primary' 
+                        : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-text-muted">Custom %:</span>
+                <input 
+                  type="number" 
+                  value={discountPercent || ''}
+                  onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                  className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+
+            {/* GST Card */}
+            <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
+              <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Global GST</h3>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[0, 12, 18].map(pct => (
+                  <button 
+                    key={pct}
+                    onClick={() => setGlobalGst(pct)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
+                      globalGst === pct 
+                        ? 'bg-primary text-white border-primary' 
+                        : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-text-muted">Custom %:</span>
+                <input 
+                  type="number" 
+                  value={globalGst}
+                  onChange={(e) => setGlobalGst(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
             </div>
 
             {/* Summary Card */}
@@ -730,10 +742,13 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                         </div>
                       )}
                     </td>
-                    <td className="py-1 align-top">{item.size}</td>
+                    <td className="py-1 align-top">
+                      {item.size}
+                      {item.base && <div className="text-[9px] text-gray-700">Base: {item.base}</div>}
+                    </td>
                     <td className="py-1 align-top text-center">{item.qty}</td>
                     <td className="py-1 align-top text-right">{item.price.toFixed(2)}</td>
-                    <td className="py-1 align-top text-right font-mono">{item.total.toFixed(2)}</td>
+                    <td className="py-1 align-top text-right font-mono">{item.itemSub.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -760,11 +775,11 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                   {totals.cgst_amount > 0 && (
                     <>
                       <div className="flex justify-between py-0.5">
-                        <span>CGST:</span>
+                        <span>CGST ({globalGst === "" ? 0 : globalGst}%):</span>
                         <span className="font-mono">₹{totals.cgst_amount.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between py-0.5">
-                        <span>SGST:</span>
+                        <span>SGST ({globalGst === "" ? 0 : globalGst}%):</span>
                         <span className="font-mono">₹{totals.sgst_amount.toFixed(2)}</span>
                       </div>
                     </>

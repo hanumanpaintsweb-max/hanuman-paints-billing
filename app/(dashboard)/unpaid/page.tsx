@@ -3,11 +3,16 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { format, differenceInDays } from "date-fns"
-import { CheckCircle, AlertCircle, Clock } from "lucide-react"
+import { CheckCircle, AlertCircle, Clock, X } from "lucide-react"
 
 export default function UnpaidBillsPage() {
   const [ledgers, setLedgers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Payment Modal State
+  const [payModalOpen, setPayModalOpen] = useState(false)
+  const [selectedLedger, setSelectedLedger] = useState<any>(null)
+  const [payAmount, setPayAmount] = useState<number | "">("")
 
   const fetchUnpaid = async () => {
     setLoading(true)
@@ -25,15 +30,50 @@ export default function UnpaidBillsPage() {
     fetchUnpaid()
   }, [])
 
-  const handleMarkPaid = async (ledger: any) => {
-    const confirmPaid = window.confirm(`Mark bill ${ledger.bill_number} as paid?`)
-    if (!confirmPaid) return
+  const openPayModal = (ledger: any) => {
+    setSelectedLedger(ledger)
+    setPayAmount(ledger.amount) // Default to full amount
+    setPayModalOpen(true)
+  }
 
-    if (ledger.bill_number) {
-      await supabase.from("bills").update({ payment_status: 'paid' }).eq("bill_number", ledger.bill_number)
-    }
-    await supabase.from("ledger").update({ status: 'paid' }).eq("id", ledger.id)
+  const handleProcessPayment = async () => {
+    if (!selectedLedger || payAmount === "" || Number(payAmount) <= 0) return
     
+    const amountPaid = Number(payAmount)
+    const currentDue = Number(selectedLedger.amount)
+    
+    if (amountPaid >= currentDue) {
+      // Full payment
+      if (selectedLedger.bill_number) {
+        await supabase.from("bills").update({ payment_status: 'paid' }).eq("bill_number", selectedLedger.bill_number)
+      }
+      await supabase.from("ledger").update({ status: 'paid', amount: 0 }).eq("id", selectedLedger.id)
+    } else {
+      // Partial payment
+      const remaining = currentDue - amountPaid
+      if (selectedLedger.bill_number) {
+        // Safe update since amount_paid doesn't exist natively, we update status to 'partial'
+        await supabase.from("bills").update({ payment_status: 'partial' }).eq("bill_number", selectedLedger.bill_number)
+      }
+      
+      // Reduce outstanding balance on the ledger
+      await supabase.from("ledger").update({ amount: remaining }).eq("id", selectedLedger.id)
+      
+      // Record the partial payment as a received entry
+      await supabase.from("ledger").insert({
+        customer_name: selectedLedger.customer_name,
+        customer_phone: selectedLedger.customer_phone,
+        type: "received",
+        amount: amountPaid,
+        description: `Partial payment received for ${selectedLedger.bill_number || 'ledger ' + selectedLedger.id}`,
+        status: "paid",
+        date: new Date().toISOString().split('T')[0]
+      })
+    }
+    
+    setPayModalOpen(false)
+    setSelectedLedger(null)
+    setPayAmount("")
     fetchUnpaid()
   }
 
@@ -139,10 +179,10 @@ export default function UnpaidBillsPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button 
-                        onClick={() => handleMarkPaid(ledger)}
+                        onClick={() => openPayModal(ledger)}
                         className="h-8 px-3 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors shadow-sm active:scale-[0.98] inline-flex items-center gap-1"
                       >
-                        <CheckCircle className="h-3 w-3" /> Mark Paid
+                        <CheckCircle className="h-3 w-3" /> Pay / Update
                       </button>
                     </td>
                   </tr>
@@ -152,6 +192,56 @@ export default function UnpaidBillsPage() {
           </table>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {payModalOpen && selectedLedger && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white w-full max-w-md rounded-lg shadow-2xl flex flex-col">
+            <div className="p-4 border-b border-border-default flex justify-between items-center bg-surface rounded-t-lg">
+              <h2 className="text-lg font-bold">Process Payment</h2>
+              <button onClick={() => setPayModalOpen(false)} className="text-text-muted hover:text-text-main">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-4">
+              <div className="flex justify-between items-center bg-error/10 text-error p-3 rounded font-bold">
+                <span>Total Due:</span>
+                <span className="font-mono text-xl">₹{Number(selectedLedger.amount).toLocaleString('en-IN')}</span>
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-text-main">Amount Being Paid</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 font-bold text-text-muted">₹</span>
+                  <input 
+                    type="number"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="h-10 w-full pl-8 pr-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary outline-none font-mono text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {payAmount !== "" && Number(payAmount) > 0 && Number(payAmount) <= Number(selectedLedger.amount) && (
+                <div className="flex justify-between items-center bg-green-50 text-green-700 p-3 rounded font-medium border border-green-200 mt-2">
+                  <span>Remaining Due:</span>
+                  <span className="font-mono text-lg">₹{(Number(selectedLedger.amount) - Number(payAmount)).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+
+              <button
+                onClick={handleProcessPayment}
+                disabled={payAmount === "" || Number(payAmount) <= 0 || Number(payAmount) > Number(selectedLedger.amount)}
+                className="mt-4 flex w-full items-center justify-center rounded bg-primary py-3 text-sm font-bold text-white shadow hover:bg-active-blue transition-colors disabled:opacity-50"
+              >
+                Confirm Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
