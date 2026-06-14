@@ -353,8 +353,8 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
     window.open(url, '_blank')
   }
 
-  // Print Chunking (7 items per page)
-  const ITEMS_PER_PAGE = 7
+  // Print Chunking (5 items per page)
+  const ITEMS_PER_PAGE = 5
   const printChunks = []
   for (let i = 0; i < calculatedItems.length; i += ITEMS_PER_PAGE) {
     printChunks.push(calculatedItems.slice(i, i + ITEMS_PER_PAGE))
@@ -445,12 +445,6 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
             <div className="bg-card-bg border border-border-default rounded shadow-sm overflow-hidden">
               <div className="p-5 border-b border-border-default flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-text-main">Products</h3>
-                <button 
-                  onClick={handleAddItem}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded text-sm font-bold shadow hover:bg-active-blue transition-colors"
-                >
-                  <Plus className="h-4 w-4" /> Add Product
-                </button>
               </div>
               
               <div className="overflow-x-auto min-h-[300px]">
@@ -572,6 +566,15 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                     ))}
                   </tbody>
                 </table>
+                {/* Add Another Product Button */}
+                <div className="p-4 border-t border-border-default">
+                  <button 
+                    onClick={handleAddItem}
+                    className="text-primary hover:bg-surface-container-highest px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors border border-transparent hover:border-border-default"
+                  >
+                    <Plus className="h-4 w-4" /> Add Another Product
+                  </button>
+                </div>
               </div>
             </div>
 

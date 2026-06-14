@@ -22,6 +22,8 @@ export function ProductCombobox({ value, onChange, products }: ProductComboboxPr
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState(value)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
 
   useEffect(() => {
     setSearchTerm(value)
@@ -37,12 +39,24 @@ export function ProductCombobox({ value, onChange, products }: ProductComboboxPr
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect()
+      setDropdownStyle({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width
+      })
+    }
+  }, [isOpen, searchTerm])
+
   const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
       <div className="relative">
         <input
+          ref={inputRef}
           type="text"
           value={searchTerm}
           onChange={(e) => {
@@ -58,7 +72,7 @@ export function ProductCombobox({ value, onChange, products }: ProductComboboxPr
       </div>
       
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-[300px] max-h-60 overflow-y-auto rounded-md border border-border-default bg-white shadow-lg">
+        <div className="product-dropdown" style={dropdownStyle}>
           {filtered.length > 0 ? (
             <ul className="py-1">
               {filtered.map(p => (
