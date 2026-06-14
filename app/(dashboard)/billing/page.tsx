@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useMemo, Suspense, Fragment } from "react"
+import { Fragment, useState, useMemo, useEffect, Suspense } from "react"
 import { format } from "date-fns"
+import { Trash2, Plus, CheckCircle2, Package, Save, Printer, MessageCircle, FileText } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { Plus, Trash2, Printer, Save, MessageCircle, CheckCircle2 } from "lucide-react"
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 interface BillItem {
   id: string;
@@ -18,6 +18,121 @@ interface BillItem {
   colorCode: string;
   colorantCost: number;
 }
+
+const BillCopy = ({ 
+  pageItems, idx, title, billNumber, billDate, customerName, customerPhone, customerAddress, 
+  totals, paymentStatus, shopSettings, isLastPage 
+}: any) => (
+  <div style={{ width: '48%', fontFamily: 'Arial, sans-serif', fontSize: '11px', padding: '8px' }}>
+    {/* Header */}
+    <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
+      <div style={{ fontSize: '16px', fontWeight: '900' }}>{shopSettings.shop_name}</div>
+      <div>{shopSettings.tagline}</div>
+      <div>{shopSettings.address}</div>
+      <div>Ph: {shopSettings.phone}</div>
+      <div style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold', display: 'inline-block', border: '1px solid #000', padding: '1px 6px', borderRadius: '4px' }}>{title}</div>
+    </div>
+
+    {/* Bill Info */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '4px', fontSize: '10px' }}>
+      <span>Bill No: <strong>{billNumber}</strong></span>
+      <span>Date: <strong>{format(new Date(billDate), 'dd/MM/yyyy')}</strong></span>
+    </div>
+
+    {/* Customer */}
+    <div style={{ borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '6px', fontSize: '10px' }}>
+      <div>Customer: <strong>{customerName}</strong></div>
+      <div>Phone: {customerPhone}</div>
+      {customerAddress && <div>{customerAddress}</div>}
+    </div>
+
+    {/* Items Table */}
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px', fontSize: '9px' }}>
+      <thead>
+        <tr style={{ background: '#000', color: '#fff' }}>
+          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '8%' }}>S.No</th>
+          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '36%', textAlign: 'left' }}>Item</th>
+          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '12%' }}>Size</th>
+          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '8%' }}>Qty</th>
+          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '16%', textAlign: 'right' }}>Rate</th>
+          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '20%', textAlign: 'right' }}>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {pageItems.map((item: any, i: number) => (
+          <Fragment key={i}>
+            <tr>
+              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'center' }}>{idx * 5 + i + 1}</td>
+              <td style={{ padding: '3px 2px', border: '1px solid #000' }}>{item.name}</td>
+              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.size}</td>
+              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.qty}</td>
+              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>
+              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.itemSub.toFixed(2)}</td>
+            </tr>
+            {item.hasColorant && (
+              <tr>
+                <td></td>
+                <td colSpan={5} style={{ padding: '2px 4px', fontSize: '8px', color: '#444', borderBottom: '1px solid #eee' }}>
+                  └ Color: {item.colorCode} {item.base && `| Base: ${item.base}`} | Colorant: ₹{item.colorantCost.toFixed(2)}
+                </td>
+              </tr>
+            )}
+          </Fragment>
+        ))}
+      </tbody>
+    </table>
+
+    {/* Totals */}
+    {isLastPage && (
+      <div style={{ borderTop: '2px solid #000', paddingTop: '4px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+          <span>Subtotal:</span>
+          <span>₹{totals.subtotal.toFixed(2)}</span>
+        </div>
+        {totals.totalColorant > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+            <span>Colorant Total:</span>
+            <span>+₹{totals.totalColorant.toFixed(2)}</span>
+          </div>
+        )}
+        {totals.discount_amount > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+            <span>Discount:</span>
+            <span>-₹{totals.discount_amount.toFixed(2)}</span>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+          <span>Taxable:</span>
+          <span>₹{totals.taxable_value.toFixed(2)}</span>
+        </div>
+        {totals.cgst_amount > 0 && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+              <span>CGST:</span>
+              <span>+₹{totals.cgst_amount.toFixed(2)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
+              <span>SGST:</span>
+              <span>+₹{totals.sgst_amount.toFixed(2)}</span>
+            </div>
+          </>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #000', borderBottom: '2px solid #000', padding: '3px 0', margin: '3px 0', fontSize: '13px', fontWeight: '900' }}>
+          <span>GRAND TOTAL:</span>
+          <span>₹{totals.total_amount.toFixed(2)}</span>
+        </div>
+        <div style={{ fontWeight: 'bold', padding: '2px 0' }}>
+          Payment: {paymentStatus.toUpperCase()}
+        </div>
+      </div>
+    )}
+
+    {/* Footer */}
+    <div style={{ borderTop: '1px dashed #000', marginTop: '6px', paddingTop: '3px', fontSize: '8px', textAlign: 'center' }}>
+      Terms: Goods once sold cannot be returned.
+    </div>
+  </div>
+)
 
 function BillingContent() {
   const searchParams = useSearchParams()
@@ -50,6 +165,7 @@ function BillingContent() {
   // UI State
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState("")
+  const [showPrintModal, setShowPrintModal] = useState(false)
   
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
@@ -350,7 +466,7 @@ function BillingContent() {
   }
 
   const handlePrint = () => {
-    window.print()
+    setShowPrintModal(true)
   }
 
   const handleWhatsApp = () => {
@@ -752,184 +868,109 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
         </div>
       </div>
 
-      {/* Print Overlay */}
-      <div 
-        id="bill-print" 
-        className="hidden print:block"
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
-      >
-        <style type="text/css">
-          {`
-            @media print {
-              @page {
-                size: A5 portrait;
-                margin: 10mm;
-              }
-              body * { 
-                visibility: hidden; 
-              }
-              #bill-print { 
-                visibility: visible;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 148mm;
-              }
-              #bill-print * { 
-                visibility: visible; 
-              }
-              #bill-print .bill-page {
-                page-break-after: always;
-              }
-              #bill-print .bill-page:last-child {
-                page-break-after: avoid;
-              }
-            }
-          `}
-        </style>
-
-        {printChunks.map((pageItems, idx) => (
-          <div 
-            key={idx} 
-            className="bill-page"
-            style={{
-              width: '100%',
-              paddingBottom: '8px',
-              pageBreakAfter: idx < printChunks.length - 1 ? 'always' : 'avoid',
-              fontFamily: 'Arial, sans-serif',
-              fontSize: '11px'
-            }}
-          >
-            
-            {/* HEADER */}
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
-              <div style={{ fontSize: '20px', fontWeight: '900', letterSpacing: '2px' }}>
-                {shopSettings.shop_name}
-              </div>
-              <div>{shopSettings.tagline}</div>
-              <div>{shopSettings.address}</div>
-              <div>Ph: {shopSettings.phone}</div>
+      {/* Modal Preview Overlay */}
+      {showPrintModal && (
+        <div className="fixed inset-0 z-[99999] bg-[#e5e7eb] flex flex-col no-print overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-border-default bg-white shadow-sm shrink-0">
+            <h2 className="text-xl font-bold text-text-main">Bill Preview</h2>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setShowPrintModal(false)}
+                className="px-4 py-2 border border-border-default rounded text-sm font-medium hover:bg-surface-container bg-white"
+              >
+                Close
+              </button>
+              <button 
+                onClick={() => window.print()}
+                className="px-6 py-2 bg-primary text-white rounded font-bold shadow hover:bg-active-blue"
+              >
+                Print
+              </button>
             </div>
-
-            {/* BILL INFO */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', padding: '4px 0', marginBottom: '4px' }}>
-              <div>
-                Bill No: <strong>{billNumber}</strong>
-              </div>
-              <div>
-                Date: <strong>{format(new Date(billDate), 'dd/MM/yyyy')}</strong>
-              </div>
-            </div>
-
-            {/* CUSTOMER */}
-            <div style={{ borderBottom: '1px solid #000', padding: '4px 0', marginBottom: '6px' }}>
-              <div><strong>Customer:</strong> {customerName}</div>
-              <div><strong>Phone:</strong> {customerPhone}</div>
-              {customerAddress && <div><strong>Address:</strong> {customerAddress}</div>}
-            </div>
-
-            {/* ITEMS TABLE */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px' }}>
-              <thead>
-                <tr style={{ background: '#000', color: '#fff' }}>
-                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '8%', textAlign: 'center' }}>S.No</th>
-                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '38%', textAlign: 'left' }}>Item</th>
-                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '12%', textAlign: 'center' }}>Size</th>
-                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '8%', textAlign: 'center' }}>Qty</th>
-                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '17%', textAlign: 'right' }}>Rate</th>
-                  <th style={{ padding: '4px 2px', border: '1px solid #000', width: '17%', textAlign: 'right' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageItems.map((item, i) => (
-                  <Fragment key={i}>
-                    <tr>
-                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{idx * ITEMS_PER_PAGE + i + 1}</td>
-                      <td style={{ padding: '4px 2px', border: '1px solid #000' }}>
-                        <div style={{ fontWeight: 'bold' }}>{item.name}</div>
-                        {item.base && !item.hasColorant && <div style={{ fontSize: '9px', color: '#555' }}>Base: {item.base}</div>}
-                      </td>
-                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.size}</td>
-                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.qty}</td>
-                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>
-                      <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.itemSub.toFixed(2)}</td>
-                    </tr>
-                    {item.hasColorant && (
-                      <tr>
-                        <td style={{ border: '1px solid #000' }}></td>
-                        <td colSpan={5} style={{ padding: '2px 4px', fontSize: '9px', color: '#555', border: '1px solid #000' }}>
-                          <div>└ Color: {item.colorCode || 'Custom'} {item.base && `| Base: ${item.base}`}</div>
-                          <div>└ Colorant Cost: ₹{item.colorantCost.toFixed(2)}</div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-
-            {/* TOTALS - only last page */}
-            {idx === printChunks.length - 1 && (
-              <div style={{ borderTop: '2px solid #000', paddingTop: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                  <span>Subtotal:</span>
-                  <span>₹{totals.subtotal.toFixed(2)}</span>
-                </div>
-
-                {totals.totalColorant > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                    <span>Colorant Total:</span>
-                    <span>+₹{totals.totalColorant.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {totals.discount_amount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                    <span>Discount:</span>
-                    <span>-₹{totals.discount_amount.toFixed(2)}</span>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                  <span>Taxable Value:</span>
-                  <span>₹{totals.taxable_value.toFixed(2)}</span>
-                </div>
-
-                {totals.cgst_amount > 0 && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span>CGST:</span>
-                      <span>+₹{totals.cgst_amount.toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span>SGST:</span>
-                      <span>+₹{totals.sgst_amount.toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #000', borderBottom: '2px solid #000', padding: '4px 0', margin: '4px 0', fontSize: '14px', fontWeight: '900' }}>
-                  <span>GRAND TOTAL:</span>
-                  <span>₹{totals.total_amount.toFixed(2)}</span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontWeight: 'bold' }}>
-                  <span>Payment Status:</span>
-                  <span>{paymentStatus.toUpperCase()}</span>
-                </div>
-
-                {billType === 'DPL' && (
-                  <div style={{ fontSize: '8px', marginTop: '4px' }}>* Prices as per Dealer Price List</div>
-                )}
-
-                <div style={{ borderTop: '1px dashed #000', marginTop: '8px', paddingTop: '4px', fontSize: '8px', textAlign: 'center' }}>
-                  Terms: Goods once sold cannot be returned.<br />Thank you for your business!
-                </div>
-              </div>
-            )}
           </div>
-        ))}
-      </div>
+          
+          <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center">
+            <style type="text/css">
+              {`
+                @media print {
+                  @page {
+                    size: A4 landscape;
+                    margin: 8mm;
+                  }
+                  body * { 
+                    visibility: hidden; 
+                  }
+                  #print-modal-content { 
+                    visibility: visible;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                  }
+                  #print-modal-content * { 
+                    visibility: visible; 
+                  }
+                  .no-print { 
+                    display: none !important; 
+                  }
+                }
+              `}
+            </style>
+
+            <div id="print-modal-content" className="w-[297mm] bg-white shadow-lg print:shadow-none print:w-full">
+              {printChunks.map((pageItems, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    pageBreakAfter: idx < printChunks.length - 1 ? 'always' : 'avoid',
+                    display: 'flex',
+                    gap: '8px',
+                    alignItems: 'flex-start',
+                    width: '100%',
+                    padding: '8px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {/* Left copy */}
+                  <BillCopy 
+                    pageItems={pageItems} 
+                    idx={idx} 
+                    title="ORIGINAL" 
+                    billNumber={billNumber}
+                    billDate={billDate}
+                    customerName={customerName}
+                    customerPhone={customerPhone}
+                    customerAddress={customerAddress}
+                    totals={totals}
+                    paymentStatus={paymentStatus}
+                    shopSettings={shopSettings}
+                    isLastPage={idx === printChunks.length - 1}
+                  />
+                  
+                  {/* Dotted divider */}
+                  <div style={{ borderLeft: '2px dashed #999', alignSelf: 'stretch' }} />
+                  
+                  {/* Right copy */}
+                  <BillCopy 
+                    pageItems={pageItems} 
+                    idx={idx} 
+                    title="DUPLICATE" 
+                    billNumber={billNumber}
+                    billDate={billDate}
+                    customerName={customerName}
+                    customerPhone={customerPhone}
+                    customerAddress={customerAddress}
+                    totals={totals}
+                    paymentStatus={paymentStatus}
+                    shopSettings={shopSettings}
+                    isLastPage={idx === printChunks.length - 1}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toast && (
