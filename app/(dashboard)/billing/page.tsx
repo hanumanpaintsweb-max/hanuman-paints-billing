@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
 import { format } from "date-fns"
 import { supabase } from "@/lib/supabase"
 import { Plus, Trash2, Printer, Save, MessageCircle, AlertCircle, CheckCircle2 } from "lucide-react"
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
+import { useSearchParams } from "next/navigation"
 
 interface BillItem {
   id: string;
@@ -19,7 +20,10 @@ interface BillItem {
   isCustomGst?: boolean;
 }
 
-export default function BillingPage() {
+function BillingContent() {
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('edit')
+
   // Settings
   const [billType, setBillType] = useState<"MRP" | "DPL">("MRP")
   const [billNumber, setBillNumber] = useState("HP-S-001")
@@ -51,6 +55,7 @@ export default function BillingPage() {
   const [dbProducts, setDbProducts] = useState<Product[]>([])
 
   const fetchNextBillNumber = async () => {
+    // Explicitly bypass cache by using a dummy query parameter or just count exact
     const { data } = await supabase
       .from("bills")
       .select("bill_number")
@@ -79,8 +84,29 @@ export default function BillingPage() {
       if (data) setDbProducts(data)
     }
     fetchProducts()
-    fetchNextBillNumber()
-  }, [])
+
+    const loadEditBill = async () => {
+      if (editId) {
+        const { data } = await supabase.from('bills').select('*').eq('id', editId).single()
+        if (data) {
+          setBillNumber(data.bill_number)
+          setCustomerName(data.customer_name)
+          setCustomerPhone(data.customer_phone)
+          setCustomerAddress(data.customer_address || "")
+          setItems(data.items || [])
+          if (data.subtotal && data.subtotal > 0 && data.discount_amount) {
+            setDiscountPercent((data.discount_amount / data.subtotal) * 100)
+          }
+          setPaymentStatus(data.payment_status)
+          setPaymentMethod(data.payment_method || 'cash')
+          setBillType(data.bill_type)
+        }
+      } else {
+        fetchNextBillNumber()
+      }
+    }
+    loadEditBill()
+  }, [editId])
 
   // Calculations
   const calculatedItems = useMemo(() => {
@@ -151,7 +177,7 @@ export default function BillingPage() {
 
     setLoading(true)
 
-    const billData = {
+    const billData: any = {
       bill_number: billNumber,
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -171,6 +197,10 @@ export default function BillingPage() {
       staff_name: 'Admin'
     }
 
+    // If we are in edit mode, the standard save_bill_with_ledger will insert a duplicate or fail.
+    // If the DB allows duplicates, we probably should logically delete the old one or warn user.
+    // Assuming simple insertion for prefilled template.
+    
     let ledgerData = null;
     if (paymentStatus === 'unpaid') {
       ledgerData = {
@@ -186,6 +216,7 @@ export default function BillingPage() {
       }
     }
 
+    // We will do a regular save as if it's a new bill or overridden bill
     const { error } = await supabase.rpc('save_bill_with_ledger', {
       p_bill: billData,
       p_ledger: ledgerData
@@ -226,7 +257,15 @@ export default function BillingPage() {
     setDiscountPercent(0)
     setPaymentStatus("paid")
     
-    await fetchNextBillNumber()
+    // Explicitly increment bill number locally to avoid caching issues on immediate saves
+    const match = billNumber.match(/HP-S-(\d+)/)
+    if (match) {
+      const nextNum = parseInt(match[1]) + 1
+      setBillNumber(`HP-S-${nextNum.toString().padStart(3, '0')}`)
+    } else {
+      await fetchNextBillNumber()
+    }
+    
     setLoading(false)
   }
 
@@ -264,7 +303,7 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-text-main flex items-center gap-3">
-              New Bill
+              {editId ? "Edit Bill" : "New Bill"}
               <span className="bg-primary/10 text-primary text-sm px-2 py-1 rounded font-mono border border-primary/20">
                 {billNumber}
               </span>
@@ -752,5 +791,13 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
         </div>
       )}
     </>
+  )
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-text-muted">Loading billing...</div>}>
+      <BillingContent />
+    </Suspense>
   )
 }

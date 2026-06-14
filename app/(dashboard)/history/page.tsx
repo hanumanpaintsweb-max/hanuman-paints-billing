@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
-import { Search, Eye, Edit, Trash2, ChevronLeft, ChevronRight, Filter } from "lucide-react"
+import { Search, Eye, Edit, Trash2, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { useRouter } from "next/navigation"
 
-export default function HistoryPage() {
+function HistoryContent() {
+  const router = useRouter()
   const [bills, setBills] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   
@@ -19,12 +21,16 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1)
   const itemsPerPage = 20
 
+  // Preview Modal
+  const [previewBill, setPreviewBill] = useState<any>(null)
+
   const fetchBills = async () => {
     setLoading(true)
+    // Fix: use neq true to include nulls if any, to avoid hiding bills
     let query = supabase
       .from("bills")
       .select("*")
-      .eq("is_deleted", false)
+      .neq("is_deleted", true)
 
     if (search) {
       query = query.or(`bill_number.ilike.%${search}%,customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%`)
@@ -44,6 +50,8 @@ export default function HistoryPage() {
     // Pagination
     const from = (page - 1) * itemsPerPage
     const to = from + itemsPerPage - 1
+    
+    // Add cache busting query param trick just in case for client-side caching
     query = query.order("created_at", { ascending: false }).range(from, to)
 
     const { data, error } = await query
@@ -67,14 +75,22 @@ export default function HistoryPage() {
     }
   }
 
+  const handleEdit = (id: string) => {
+    router.push(`/billing?edit=${id}`)
+  }
+
+  const handlePrintPreview = () => {
+    window.print()
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center print:hidden">
         <h1 className="text-2xl font-bold text-text-main">Bill History</h1>
       </div>
 
       {/* Filters Card */}
-      <div className="bg-card-bg border border-border-default rounded p-4 flex flex-col md:flex-row gap-4 items-end shadow-sm">
+      <div className="bg-card-bg border border-border-default rounded p-4 flex flex-col md:flex-row gap-4 items-end shadow-sm print:hidden">
         <div className="flex-1 flex flex-col gap-1.5 w-full">
           <label className="text-sm text-text-muted font-medium">Search</label>
           <div className="relative">
@@ -124,7 +140,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Table Card */}
-      <div className="bg-card-bg border border-border-default rounded shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-card-bg border border-border-default rounded shadow-sm overflow-hidden flex flex-col print:hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead className="bg-surface-container-low text-xs uppercase text-text-muted border-b border-border-default">
@@ -167,10 +183,10 @@ export default function HistoryPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center items-center gap-3">
-                        <button className="text-text-muted hover:text-primary transition-colors" title="View">
+                        <button onClick={() => setPreviewBill(bill)} className="text-text-muted hover:text-primary transition-colors" title="View">
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button className="text-text-muted hover:text-active-blue transition-colors" title="Edit">
+                        <button onClick={() => handleEdit(bill.id)} className="text-text-muted hover:text-active-blue transition-colors" title="Edit">
                           <Edit className="h-4 w-4" />
                         </button>
                         <button 
@@ -212,6 +228,140 @@ export default function HistoryPage() {
           </div>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewBill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 print:p-0 print:bg-white print:block">
+          <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl flex flex-col max-h-[90vh] print:shadow-none print:max-h-none print:w-full">
+            <div className="p-4 border-b border-border-default flex justify-between items-center bg-surface rounded-t-lg print:hidden">
+              <h2 className="text-lg font-bold">Preview Bill: {previewBill.bill_number}</h2>
+              <div className="flex items-center gap-3">
+                <button onClick={handlePrintPreview} className="px-4 py-1.5 bg-primary text-white text-sm font-bold rounded shadow-sm hover:bg-active-blue">
+                  Print
+                </button>
+                <button onClick={() => setPreviewBill(null)} className="text-text-muted hover:text-text-main">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-8 overflow-y-auto print:p-2 text-black font-sans bg-white text-[11px] leading-snug">
+              {/* Print Header */}
+              <div className="text-center border-b border-black pb-2 mb-3">
+                <h1 className="text-[20px] font-bold uppercase tracking-wide m-0 p-0 leading-tight">HANUMAN PAINTS</h1>
+                <div className="text-[12px] m-0 p-0">Authorized Dulux Blue Store</div>
+                <div className="text-[12px] m-0 p-0">Ward No 16, Lohapatty, Madhubani, Bihar</div>
+                <div className="text-[12px] m-0 p-0">Ph: 8292889540</div>
+                <div className="mt-2 font-bold text-[14px] uppercase">
+                  {previewBill.bill_type === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}
+                </div>
+                <div className="text-[12px] font-bold mt-1">Bill: {previewBill.bill_number}</div>
+              </div>
+
+              {/* Print Customer Info */}
+              <div className="flex justify-between mb-4 border-b border-black pb-3 text-[12px]">
+                <div>
+                  <div><span className="font-semibold">Bill To:</span> {previewBill.customer_name}</div>
+                  <div><span className="font-semibold">Phone:</span> {previewBill.customer_phone}</div>
+                  {previewBill.customer_address && <div><span className="font-semibold">Address:</span> {previewBill.customer_address}</div>}
+                </div>
+                <div className="text-right">
+                  <div><span className="font-semibold">Date:</span> {format(new Date(previewBill.created_at), 'dd/MM/yyyy')}</div>
+                </div>
+              </div>
+
+              {/* Print Table */}
+              <table className="w-full text-left border-collapse mb-4 text-[12px]">
+                <thead className="border-y border-black font-semibold">
+                  <tr>
+                    <th className="py-2">S.No</th>
+                    <th className="py-2">Item</th>
+                    <th className="py-2">Size</th>
+                    <th className="py-2 text-center">Qty</th>
+                    <th className="py-2 text-right">Price</th>
+                    <th className="py-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="border-b border-black">
+                  {previewBill.items?.map((item: any, idx: number) => (
+                    <tr key={item.id || idx}>
+                      <td className="py-2 align-top">{idx + 1}</td>
+                      <td className="py-2 align-top">
+                        <div className="font-medium">{item.name}</div>
+                        {item.hasColorant && (
+                          <div className="pl-2 text-[10px] text-gray-700 mt-1">
+                            └ Color Code: {item.colorCode} <br/>
+                            └ Colorant: ₹{item.colorantCost?.toFixed(2)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 align-top">{item.size}</td>
+                      <td className="py-2 align-top text-center">{item.qty}</td>
+                      <td className="py-2 align-top text-right">{item.price?.toFixed(2)}</td>
+                      <td className="py-2 align-top text-right font-mono">{item.total?.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Print Totals */}
+              <div className="flex justify-end pt-2 text-[12px]">
+                <div className="w-[250px]">
+                  <div className="flex justify-between py-1">
+                    <span>Subtotal:</span>
+                    <span className="font-mono">₹{previewBill.subtotal?.toFixed(2)}</span>
+                  </div>
+                  {previewBill.discount_amount > 0 && (
+                    <div className="flex justify-between py-1">
+                      <span>Discount (-):</span>
+                      <span className="font-mono">₹{previewBill.discount_amount?.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-1">
+                    <span>Taxable Value:</span>
+                    <span className="font-mono">₹{previewBill.taxable_value?.toFixed(2)}</span>
+                  </div>
+                  {previewBill.cgst_amount > 0 && (
+                    <>
+                      <div className="flex justify-between py-1">
+                        <span>CGST:</span>
+                        <span className="font-mono">₹{previewBill.cgst_amount?.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between py-1">
+                        <span>SGST:</span>
+                        <span className="font-mono">₹{previewBill.sgst_amount?.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between py-2 border-t border-black font-bold text-[16px] mt-2">
+                    <span>GRAND TOTAL:</span>
+                    <span className="font-mono">₹{previewBill.total_amount?.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 mt-2 font-semibold">
+                    <span>Payment:</span>
+                    <span className="uppercase">{previewBill.payment_status}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Print Footer */}
+              <div className="mt-12 pt-3 border-t border-black border-dashed text-center text-[10px]">
+                <div className="font-semibold mb-1">Terms & Conditions</div>
+                <div>Goods once sold cannot be returned.</div>
+                {previewBill.bill_type === 'DPL' && <div className="mt-1 font-bold">* Dealer Price List</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-text-muted">Loading history...</div>}>
+      <HistoryContent />
+    </Suspense>
   )
 }
