@@ -54,6 +54,14 @@ function BillingContent() {
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
 
+  // Shop Settings
+  const [shopSettings, setShopSettings] = useState({
+    shop_name: "HANUMAN PAINTS",
+    tagline: "Authorized Dulux Blue Store",
+    address: "Ward No 16, Lohapatty, Madhubani",
+    phone: "8292889540"
+  })
+
   const fetchNextBillNumber = async () => {
     const { data } = await supabase
       .from("bills")
@@ -73,6 +81,19 @@ function BillingContent() {
   }
 
   useEffect(() => {
+    const fetchShopSettings = async () => {
+      const { data } = await supabase.from('shop_settings').select('*').limit(1).maybeSingle()
+      if (data) {
+        setShopSettings({
+          shop_name: data.shop_name?.toUpperCase() || "HANUMAN PAINTS",
+          tagline: data.tagline || "Authorized Dulux Blue Store",
+          address: data.address || "Ward No 16, Lohapatty, Madhubani",
+          phone: data.phone || "8292889540"
+        })
+      }
+    }
+    fetchShopSettings()
+
     const fetchProducts = async () => {
       let { data, error } = await supabase
         .from("products")
@@ -747,18 +768,15 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
             {/* HEADER */}
             <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
               <div style={{ fontSize: '20px', fontWeight: '900', letterSpacing: '2px' }}>
-                HANUMAN PAINTS
+                {shopSettings.shop_name}
               </div>
-              <div>Authorized Dulux Blue Store</div>
-              <div>Ward No 16, Lohapatty, Madhubani</div>
-              <div>Ph: 8292889540</div>
+              <div>{shopSettings.tagline}</div>
+              <div>{shopSettings.address}</div>
+              <div>Ph: {shopSettings.phone}</div>
             </div>
 
             {/* BILL INFO */}
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', padding: '4px 0', marginBottom: '4px' }}>
-              <div>
-                <strong>{billType === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}</strong>
-              </div>
               <div>
                 Bill No: <strong>{billNumber}</strong>
               </div>
@@ -793,18 +811,22 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                       <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{idx * ITEMS_PER_PAGE + i + 1}</td>
                       <td style={{ padding: '4px 2px', border: '1px solid #000' }}>
                         <div style={{ fontWeight: 'bold' }}>{item.name}</div>
-                        {item.base && <div style={{ fontSize: '9px', color: '#555' }}>Base: {item.base}</div>}
-                        {item.hasColorant && item.colorantCost > 0 && (
-                          <div style={{ fontSize: '9px', color: '#555' }}>
-                            + Colorant: {item.colorCode || 'Custom'} (₹{item.colorantCost.toFixed(2)})
-                          </div>
-                        )}
+                        {item.base && !item.hasColorant && <div style={{ fontSize: '9px', color: '#555' }}>Base: {item.base}</div>}
                       </td>
                       <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.size}</td>
                       <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.qty}</td>
                       <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>
                       <td style={{ padding: '4px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.itemSub.toFixed(2)}</td>
                     </tr>
+                    {item.hasColorant && (
+                      <tr>
+                        <td style={{ border: '1px solid #000' }}></td>
+                        <td colSpan={5} style={{ padding: '2px 4px', fontSize: '9px', color: '#555', border: '1px solid #000' }}>
+                          <div>└ Color: {item.colorCode || 'Custom'} {item.base && `| Base: ${item.base}`}</div>
+                          <div>└ Colorant Cost: ₹{item.colorantCost.toFixed(2)}</div>
+                        </td>
+                      </tr>
+                    )}
                   </Fragment>
                 ))}
               </tbody>
