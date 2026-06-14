@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useMemo, useEffect, Suspense } from "react"
 import { format } from "date-fns"
-import { Trash2, Plus, CheckCircle2, Package, Save, Printer, MessageCircle, FileText } from "lucide-react"
+import { Trash2, Plus, CheckCircle2, Save, Printer } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -28,7 +28,7 @@ function BillingContent() {
   const [billType, setBillType] = useState<"MRP" | "DPL">("MRP")
   const [billNumber, setBillNumber] = useState("HP-S-001")
   const [billDate, setBillDate] = useState(format(new Date(), "yyyy-MM-dd"))
-  
+
   // Customer
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
@@ -52,8 +52,6 @@ function BillingContent() {
   const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid">("paid")
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "both">("cash")
 
-
-  
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
 
@@ -70,26 +68,18 @@ function BillingContent() {
       const { data, error } = await supabase
         .from('bills')
         .select('bill_number')
-        .order('created_at', { 
-          ascending: false 
-        })
+        .order('created_at', { ascending: false })
         .limit(1)
         .single()
-      
+
       if (error || !data) {
         setBillNumber('HP-S-001')
         return
       }
-      
-      const match = data.bill_number
-        .match(/(\d+)$/)
-      const next = match 
-        ? parseInt(match[1]) + 1 
-        : 1
-      setBillNumber(
-        'HP-S-' + 
-        next.toString().padStart(3, '0')
-      )
+
+      const match = data.bill_number.match(/(\d+)$/)
+      const next = match ? parseInt(match[1]) + 1 : 1
+      setBillNumber('HP-S-' + next.toString().padStart(3, '0'))
     } catch {
       setBillNumber('HP-S-001')
     }
@@ -115,16 +105,13 @@ function BillingContent() {
         .select("id, name, unit, category, type, mrp:base_mrp, is_active")
         .eq("is_active", true)
         .order("name", { ascending: true })
-      
+
       if (error) {
-        // Fallback without mrp or is_active
         const fallback = await supabase
           .from("products")
           .select("id, name, unit, category, type")
           .order("name", { ascending: true })
-        if (fallback.data) {
-          setDbProducts(fallback.data)
-        }
+        if (fallback.data) setDbProducts(fallback.data)
       } else if (data) {
         setDbProducts(data)
       }
@@ -139,8 +126,7 @@ function BillingContent() {
           setCustomerName(data.customer_name)
           setCustomerPhone(data.customer_phone)
           setCustomerAddress(data.customer_address || "")
-          
-          // Re-map items in case old bills don't have 'base' property or have legacy GST
+
           const loadedItems = (data.items || []).map((i: any) => ({
             id: i.id || Date.now().toString(),
             name: i.name || "",
@@ -157,8 +143,7 @@ function BillingContent() {
           if (data.subtotal && data.subtotal > 0 && data.discount_amount) {
             setDiscountPercent((data.discount_amount / data.subtotal) * 100)
           }
-          
-          // Reverse-calculate global GST percent if cgst/sgst exists
+
           if (data.taxable_value && data.taxable_value > 0 && data.cgst_amount) {
             const gst_total = (data.cgst_amount + data.sgst_amount)
             const computedGst = Math.round((gst_total / data.taxable_value) * 100)
@@ -195,10 +180,10 @@ function BillingContent() {
         totalColorant += item.colorantCost
       }
     })
-    
+
     const discount_amount = Math.max(0, subtotal * (discountPercent / 100))
     const taxable_value = Math.max(0, subtotal - discount_amount)
-    
+
     const gstRate = globalGst === "" ? 0 : Number(globalGst)
     const gst_total = Math.max(0, taxable_value * (gstRate / 100))
     const total_amount = Math.max(0, taxable_value + gst_total)
@@ -210,7 +195,7 @@ function BillingContent() {
       taxable_value: Math.max(0, taxable_value),
       cgst_amount: Math.max(0, gst_total / 2),
       sgst_amount: Math.max(0, gst_total / 2),
-      total_amount: Math.max(0, Math.round(total_amount)) // rounding final total
+      total_amount: Math.max(0, Math.round(total_amount))
     }
   }, [calculatedItems, discountPercent, globalGst])
 
@@ -229,9 +214,9 @@ function BillingContent() {
   const handleProductSelect = (id: string, name: string, unit?: string, mrp?: number) => {
     setItems(items.map(i => {
       if (i.id === id) {
-        return { 
-          ...i, 
-          name, 
+        return {
+          ...i,
+          name,
           size: unit !== undefined ? unit : i.size,
           rate: mrp !== undefined && mrp !== null ? mrp : i.rate
         }
@@ -240,14 +225,30 @@ function BillingContent() {
     }))
   }
 
-  const handleSave = async () => {
+  const resetForm = async () => {
+    setCustomerName("")
+    setCustomerPhone("")
+    setCustomerAddress("")
+    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setDiscountPercent(0)
+    setGlobalGst("")
+    setPaymentStatus("paid")
+    await fetchNextBillNumber()
+    if (editId) {
+      router.push('/admin/history') // Go back to history after edit completion
+    } else {
+      router.refresh()
+    }
+  }
+
+  const handleSave = async (isPrintAction = false) => {
     if (!customerName || !customerPhone || customerPhone.length < 10) {
       alert("Please enter a valid customer name and 10-digit phone number.")
-      return
+      return null
     }
     if (items.some(i => !i.name || i.qty < 1)) {
       alert("Please ensure all products have a name and quantity.")
-      return
+      return null
     }
 
     setLoading(true)
@@ -282,7 +283,7 @@ function BillingContent() {
         description: 'Bill ' + billNumber,
         date: billDate,
         status: 'pending',
-        due_date: null, // Due date removed per request
+        due_date: null,
         bill_number: billNumber
       }
     }
@@ -319,15 +320,9 @@ function BillingContent() {
       setSavedBillId(insertedData.id)
     }
 
-    // If unpaid, save ledger separately
     if (paymentStatus === 'unpaid' && ledgerData) {
-      const { error: ledgerError } = await supabase
-        .from('ledger')
-        .insert([ledgerData])
-      
-      if (ledgerError) {
-        console.error("Error saving ledger:", ledgerError)
-      }
+      const { error: ledgerError } = await supabase.from('ledger').insert([ledgerData])
+      if (ledgerError) console.error("Error saving ledger:", ledgerError)
     }
 
     const warnings: string[] = []
@@ -351,39 +346,44 @@ function BillingContent() {
     }
     setTimeout(() => setToast(""), 5000)
 
-    // Reset Form
-    setCustomerName("")
-    setCustomerPhone("")
-    setCustomerAddress("")
-    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
-    setDiscountPercent(0)
-    setGlobalGst("")
-    setPaymentStatus("paid")
-    
-    // DB se fresh fetch karo bill number ke liye
-    await fetchNextBillNumber()
-
-    // Refresh history router cache
-    router.refresh()
-    
     setLoading(false)
+
+    // IMPORTANT: If this is NOT a print action, we reset form immediately. 
+    // If it IS a print action, we let the form stay so window.print() can read the data.
+    if (!isPrintAction) {
+      await resetForm();
+    }
+
     return insertedData?.id
+  }
+
+  const handlePrint = async () => {
+    // Save without resetting form
+    const successId = await handleSave(true);
+
+    if (successId || editId) {
+      // Small delay to ensure React state renders the print container
+      setTimeout(() => {
+        window.print();
+        // Reset form AFTER print dialog opens/closes
+        setTimeout(() => {
+          resetForm();
+        }, 1500);
+      }, 300);
+    }
   }
 
   const formatCurrency = (num: number) => {
     return num.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
   }
 
-  const handlePrint = async () => {
-    if (savedBillId && !editId) {
-      window.open(`/print/${savedBillId}`, '_blank')
-    } else {
-      const newId = await handleSave()
-      if (newId) {
-        window.open(`/print/${newId}`, '_blank')
-      }
-    }
+  // --- PRINT PAGINATION LOGIC ---
+  const ITEMS_PER_PAGE = 5;
+  const pages = [];
+  for (let i = 0; i < calculatedItems.length; i += ITEMS_PER_PAGE) {
+    pages.push(calculatedItems.slice(i, i + ITEMS_PER_PAGE));
   }
+  if (pages.length === 0) pages.push([]);
 
   return (
     <>
@@ -399,20 +399,20 @@ function BillingContent() {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={billDate}
               onChange={(e) => setBillDate(e.target.value)}
               className="h-10 px-3 rounded border border-border-default bg-card-bg text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
             />
             <div className="flex rounded border border-border-default bg-card-bg p-1">
-              <button 
+              <button
                 onClick={() => setBillType("MRP")}
                 className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${billType === "MRP" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text-main"}`}
               >
                 MRP Bill
               </button>
-              <button 
+              <button
                 onClick={() => setBillType("DPL")}
                 className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${billType === "DPL" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text-main"}`}
               >
@@ -423,42 +423,42 @@ function BillingContent() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-          
+
           {/* Main Form Left Column */}
           <div className="xl:col-span-8 flex flex-col gap-6">
-            
+
             {/* Customer Card */}
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Customer Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm text-text-muted font-medium">Customer Name <span className="text-error">*</span></label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none" 
+                    className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     placeholder="Enter name"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm text-text-muted font-medium">Phone Number <span className="text-error">*</span></label>
-                  <input 
+                  <input
                     type="text"
                     maxLength={10}
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none" 
+                    className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     placeholder="10 digit number"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5 md:col-span-2">
                   <label className="text-sm text-text-muted font-medium">Address (Optional)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={customerAddress}
                     onChange={(e) => setCustomerAddress(e.target.value)}
-                    className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none" 
+                    className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     placeholder="Enter full address"
                   />
                 </div>
@@ -470,7 +470,7 @@ function BillingContent() {
               <div className="p-5 border-b border-border-default flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-text-main">Products</h3>
               </div>
-              
+
               <div className="overflow-x-auto min-h-[300px]">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-surface-container-low text-xs uppercase text-text-muted border-b border-border-default">
@@ -489,15 +489,15 @@ function BillingContent() {
                         {/* Name Column */}
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col gap-2">
-                            <ProductCombobox 
-                              value={item.name} 
+                            <ProductCombobox
+                              value={item.name}
                               onChange={(name, unit, mrp) => handleProductSelect(item.id, name, unit, mrp)}
-                              products={dbProducts} 
+                              products={dbProducts}
                             />
                             <div className="flex items-center gap-2 mt-1">
                               <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
-                                <input 
-                                  type="checkbox" 
+                                <input
+                                  type="checkbox"
                                   checked={item.hasColorant}
                                   onChange={(e) => updateItem(item.id, 'hasColorant', e.target.checked)}
                                   className="rounded text-primary focus:ring-primary accent-primary"
@@ -507,15 +507,15 @@ function BillingContent() {
                             </div>
                             {item.hasColorant && (
                               <div className="flex gap-2">
-                                <input 
-                                  type="text" 
+                                <input
+                                  type="text"
                                   value={item.colorCode}
                                   onChange={(e) => updateItem(item.id, 'colorCode', e.target.value)}
                                   className="h-8 w-24 px-2 text-xs rounded border border-border-default focus:border-primary outline-none"
                                   placeholder="Color Code"
                                 />
-                                <input 
-                                  type="number" 
+                                <input
+                                  type="number"
                                   value={item.colorantCost || ''}
                                   onChange={(e) => updateItem(item.id, 'colorantCost', parseFloat(e.target.value) || 0)}
                                   className="h-8 w-24 px-2 text-xs rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -529,15 +529,15 @@ function BillingContent() {
                         {/* Size & Base Column */}
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col gap-2">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={item.size}
                               onChange={(e) => updateItem(item.id, 'size', e.target.value)}
                               className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
                               placeholder="Size e.g. 1L"
                             />
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={item.base}
                               onChange={(e) => updateItem(item.id, 'base', e.target.value)}
                               className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
@@ -548,8 +548,8 @@ function BillingContent() {
 
                         {/* Qty Column */}
                         <td className="px-4 py-3 align-middle">
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             min="1"
                             value={item.qty || ''}
                             onChange={(e) => updateItem(item.id, 'qty', parseInt(e.target.value) || 0)}
@@ -559,8 +559,8 @@ function BillingContent() {
 
                         {/* Price Column */}
                         <td className="px-4 py-3 align-middle">
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             value={item.rate || ''}
                             onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)}
                             className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -578,7 +578,7 @@ function BillingContent() {
                         {/* Remove Action Column */}
                         <td className="px-4 py-3 align-middle text-center">
                           {items.length > 1 && (
-                            <button 
+                            <button
                               onClick={() => handleRemoveItem(item.id)}
                               className="h-9 w-9 inline-flex items-center justify-center text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors"
                             >
@@ -592,7 +592,7 @@ function BillingContent() {
                 </table>
                 {/* Add Another Product Button */}
                 <div className="p-4 border-t border-border-default">
-                  <button 
+                  <button
                     onClick={handleAddItem}
                     className="text-primary hover:bg-surface-container-highest px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors border border-transparent hover:border-border-default"
                   >
@@ -606,22 +606,22 @@ function BillingContent() {
 
           {/* Sidebar Right Column */}
           <div className="xl:col-span-4 flex flex-col gap-6">
-            
+
             {/* Payment Card */}
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Payment Details</h3>
               <div className="flex gap-4 mb-4">
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input 
-                    type="radio" 
+                  <input
+                    type="radio"
                     checked={paymentStatus === 'paid'}
                     onChange={() => setPaymentStatus('paid')}
                     className="text-primary focus:ring-primary accent-primary"
                   /> Paid
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input 
-                    type="radio" 
+                  <input
+                    type="radio"
                     checked={paymentStatus === 'unpaid'}
                     onChange={() => setPaymentStatus('unpaid')}
                     className="text-primary focus:ring-primary accent-primary"
@@ -632,7 +632,7 @@ function BillingContent() {
               {paymentStatus === 'paid' && (
                 <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
                   <label className="text-sm text-text-muted">Payment Mode</label>
-                  <select 
+                  <select
                     value={paymentMethod}
                     onChange={(e: any) => setPaymentMethod(e.target.value)}
                     className="h-10 w-full px-3 rounded border border-border-default bg-white focus:border-primary outline-none"
@@ -650,14 +650,13 @@ function BillingContent() {
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Discount</h3>
               <div className="flex flex-wrap gap-2 mb-3">
                 {[0, 5, 10, 15].map(pct => (
-                  <button 
+                  <button
                     key={pct}
                     onClick={() => setDiscountPercent(pct)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
-                      discountPercent === pct 
-                        ? 'bg-primary text-white border-primary' 
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${discountPercent === pct
+                        ? 'bg-primary text-white border-primary'
                         : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
-                    }`}
+                      }`}
                   >
                     {pct}%
                   </button>
@@ -665,8 +664,8 @@ function BillingContent() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-text-muted">Custom %:</span>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={discountPercent || ''}
                   onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
                   className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -679,14 +678,13 @@ function BillingContent() {
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Global GST</h3>
               <div className="flex flex-wrap gap-2 mb-3">
                 {[0, 12, 18].map(pct => (
-                  <button 
+                  <button
                     key={pct}
                     onClick={() => setGlobalGst(pct)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
-                      globalGst === pct 
-                        ? 'bg-primary text-white border-primary' 
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${globalGst === pct
+                        ? 'bg-primary text-white border-primary'
                         : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
-                    }`}
+                      }`}
                   >
                     {pct}%
                   </button>
@@ -694,8 +692,8 @@ function BillingContent() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-text-muted">Custom %:</span>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={globalGst}
                   onChange={(e) => setGlobalGst(e.target.value === "" ? "" : parseFloat(e.target.value))}
                   className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -736,14 +734,14 @@ function BillingContent() {
 
               {/* Action Buttons */}
               <div className="flex flex-col gap-3 mt-6">
-                <button 
-                  onClick={() => handleSave()}
+                <button
+                  onClick={() => handleSave(false)}
                   disabled={loading}
                   className="w-full h-12 bg-white border border-border-default text-text-main rounded font-bold flex items-center justify-center gap-2 hover:bg-surface-container transition-colors shadow-sm active:scale-[0.98] disabled:opacity-70"
                 >
                   <Save className="h-5 w-5" /> {loading ? "Saving..." : (editId ? "Save Changes" : "Save Bill")}
                 </button>
-                <button 
+                <button
                   onClick={handlePrint}
                   disabled={loading}
                   className="w-full h-12 bg-[#16a34a] text-white rounded font-bold flex items-center justify-center gap-2 hover:bg-[#15803d] transition-colors shadow-sm active:scale-[0.98] disabled:opacity-70"
@@ -757,11 +755,160 @@ function BillingContent() {
         </div>
       </div>
 
+      {/* --- HIDDEN PRINT TEMPLATE (ONLY VISIBLE ON PRINTER) --- */}
+      <div className="hidden print:block w-full bg-white text-black absolute top-0 left-0 z-50">
+        <style>{`
+          @media print {
+            @page { size: 148mm 210mm; margin: 0; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+          }
+          .bill-page { 
+            width: 148mm;
+            height: 210mm;
+            overflow: hidden;
+            page-break-after: always;
+            padding: 8mm;
+            background: white;
+            font-family: Arial, sans-serif;
+            color: black;
+          }
+          .bill-page:last-child { page-break-after: avoid; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #000; padding: 3px 4px; font-size: 10px; }
+          th { background: #000 !important; color: #fff !important; text-align: center; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .bold { font-weight: bold; }
+          .grand-total {
+            font-size: 13px;
+            font-weight: 900;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding: 4px 0;
+            margin: 3px 0;
+            display: flex;
+            justify-content: space-between;
+          }
+        `}</style>
 
+        {pages.map((pageItems, idx) => (
+          <div key={idx} className="bill-page mx-auto">
+            {/* HEADER */}
+            <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
+              <div style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '1px' }}>
+                {shopSettings.shop_name}
+              </div>
+              <div>{shopSettings.tagline}</div>
+              <div>{shopSettings.address}</div>
+              <div>Ph: {shopSettings.phone}</div>
+            </div>
+
+            {/* BILL INFO */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '4px', fontSize: '11px' }}>
+              <span>Bill No: <strong>{billNumber}</strong></span>
+              <span>Date: <strong>{new Date(billDate).toLocaleDateString('en-IN')}</strong></span>
+            </div>
+
+            {/* CUSTOMER */}
+            <div style={{ borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '6px', fontSize: '11px' }}>
+              <div>Customer: <strong>{customerName}</strong></div>
+              <div>Phone: {customerPhone}</div>
+              {customerAddress && <div>{customerAddress}</div>}
+            </div>
+
+            {/* ITEMS TABLE */}
+            <table style={{ marginBottom: '6px' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '8%' }}>S.No</th>
+                  <th style={{ width: '36%', textAlign: 'left' }}>Item</th>
+                  <th style={{ width: '12%' }}>Size</th>
+                  <th style={{ width: '8%' }}>Qty</th>
+                  <th style={{ width: '18%' }}>Rate</th>
+                  <th style={{ width: '18%' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageItems.map((item: any, i: number) => (
+                  <Fragment key={item.id}>
+                    <tr>
+                      <td className="text-center">{idx * ITEMS_PER_PAGE + i + 1}</td>
+                      <td>{item.name}</td>
+                      <td className="text-center">{item.size}</td>
+                      <td className="text-center">{item.qty}</td>
+                      <td className="text-right">₹{Number(item.rate).toFixed(2)}</td>
+                      <td className="text-right">₹{Number(item.itemSub).toFixed(2)}</td>
+                    </tr>
+                    {item.hasColorant && (
+                      <tr>
+                        <td></td>
+                        <td colSpan={5} style={{ fontSize: '9px', color: '#555' }}>
+                          └ Color: {item.colorCode} {item.base && ` | Base: ${item.base}`} | Colorant: ₹{item.colorantCost}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+
+            {/* TOTALS - last page only */}
+            {idx === pages.length - 1 ? (
+              <div style={{ borderTop: '2px solid #000', paddingTop: '6px', fontSize: '11px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                  <span>Subtotal:</span>
+                  <span>₹{Number(totals.subtotal).toFixed(2)}</span>
+                </div>
+                {Number(totals.discount_amount) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                    <span>Discount:</span>
+                    <span>-₹{Number(totals.discount_amount).toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                  <span>Taxable:</span>
+                  <span>₹{Number(totals.taxable_value).toFixed(2)}</span>
+                </div>
+                {Number(totals.cgst_amount) > 0 && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>CGST:</span>
+                      <span>+₹{Number(totals.cgst_amount).toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>SGST:</span>
+                      <span>+₹{Number(totals.sgst_amount).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="grand-total">
+                  <span>GRAND TOTAL:</span>
+                  <span>₹{Number(totals.total_amount).toFixed(2)}</span>
+                </div>
+                <div className="bold" style={{ padding: '2px 0' }}>
+                  Payment: {paymentStatus.toUpperCase()}
+                </div>
+                {billType === 'DPL' && (
+                  <div style={{ fontSize: '8px', marginTop: '4px' }}>
+                    * Dealer Price List
+                  </div>
+                )}
+                <div style={{ borderTop: '1px dashed #000', marginTop: '8px', paddingTop: '4px', fontSize: '8px', textAlign: 'center' }}>
+                  Terms: Goods once sold cannot be returned.
+                </div>
+              </div>
+            ) : (
+              <div style={{ position: 'absolute', bottom: '8mm', right: '8mm', fontSize: '10px', fontStyle: 'italic', color: '#555' }}>
+                Continued on next page...
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-5 z-50">
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-5 z-50 print:hidden">
           <CheckCircle2 className="h-5 w-5" />
           <span className="font-medium">{toast}</span>
         </div>
