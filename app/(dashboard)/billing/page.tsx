@@ -738,21 +738,35 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
       </div>
 
       {/* Print Overlay */}
-      <div id="bill-print" className="hidden print:block">
-        <style type="text/css" media="print">
+      <div id="bill-print" className="hidden print:block" style={{ width: '100%', maxWidth: 'none', fontSize: '11px' }}>
+        <style type="text/css">
           {`
-            @page {
-              size: A5 portrait;
-              margin: 8mm;
-            }
-            body * { visibility: hidden; }
-            #bill-print { visibility: visible; }
-            #bill-print * { visibility: visible; }
-            #bill-print {
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
+            @media print {
+              @page {
+                size: A5 portrait;
+                margin: 8mm;
+              }
+              
+              body * {
+                visibility: hidden;
+              }
+              
+              #bill-print {
+                visibility: visible;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: auto;
+              }
+              
+              #bill-print * {
+                visibility: visible;
+              }
+              
+              .no-print {
+                display: none !important;
+              }
             }
           `}
         </style>
