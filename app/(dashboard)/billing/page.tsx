@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { supabase } from "@/lib/supabase"
 import { Plus, Trash2, Printer, Save, MessageCircle, AlertCircle, CheckCircle2 } from "lucide-react"
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 
 interface BillItem {
   id: string;
@@ -22,6 +22,7 @@ interface BillItem {
 
 function BillingContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const editId = searchParams.get('edit')
 
   // Settings
@@ -191,7 +192,7 @@ function BillingContent() {
       sgst_amount: totals.sgst_amount,
       total_amount: totals.total_amount,
       payment_status: paymentStatus,
-      payment_method: paymentStatus === 'paid' ? paymentMethod : null,
+      payment_method: paymentStatus === 'paid' ? paymentMethod : 'unpaid',
       bill_type: billType,
       is_deleted: false,
       staff_name: 'Admin'
@@ -257,14 +258,11 @@ function BillingContent() {
     setDiscountPercent(0)
     setPaymentStatus("paid")
     
-    // Explicitly increment bill number locally to avoid caching issues on immediate saves
-    const match = billNumber.match(/HP-S-(\d+)/)
-    if (match) {
-      const nextNum = parseInt(match[1]) + 1
-      setBillNumber(`HP-S-${nextNum.toString().padStart(3, '0')}`)
-    } else {
-      await fetchNextBillNumber()
-    }
+    // DB se fresh fetch karo bill number ke liye
+    await fetchNextBillNumber()
+
+    // Refresh history router cache
+    router.refresh()
     
     setLoading(false)
   }
