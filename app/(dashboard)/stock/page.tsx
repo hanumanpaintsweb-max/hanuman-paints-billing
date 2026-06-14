@@ -21,13 +21,27 @@ export default function StockPage() {
 
   const fetchStock = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from("products")
-      .select("id, name, category, unit, current_stock, mrp")
-      .eq("is_active", true)
-      .order("current_stock", { ascending: true }) // Lowest stock first
+    
+    let { data, error } = await supabase
+      .from('products')
+      .select('id, name, category, unit, current_stock, is_active, mrp')
+      .eq('is_active', true)
+      .order('name')
 
-    if (data) setProducts(data)
+    if (error) {
+      // Fallback if is_active or mrp doesn't exist
+      const fallback = await supabase
+        .from('products')
+        .select('id, name, category, unit, current_stock')
+        .order('name')
+        
+      if (fallback.data) {
+        setProducts(fallback.data)
+      }
+    } else if (data) {
+      setProducts(data)
+    }
+    
     setLoading(false)
   }
 

@@ -74,13 +74,24 @@ function BillingContent() {
 
   useEffect(() => {
     const fetchProducts = async () => {
-      const { data } = await supabase
+      let { data, error } = await supabase
         .from("products")
-        .select("id, name, unit, category, type, mrp")
+        .select("id, name, unit, category, type, mrp, is_active")
         .eq("is_active", true)
         .order("name", { ascending: true })
       
-      if (data) setDbProducts(data)
+      if (error) {
+        // Fallback without mrp or is_active
+        const fallback = await supabase
+          .from("products")
+          .select("id, name, unit, category, type")
+          .order("name", { ascending: true })
+        if (fallback.data) {
+          setDbProducts(fallback.data)
+        }
+      } else if (data) {
+        setDbProducts(data)
+      }
     }
     fetchProducts()
 
