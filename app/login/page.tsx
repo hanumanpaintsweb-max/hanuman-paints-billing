@@ -14,10 +14,10 @@ export default function LoginPage() {
     e.preventDefault()
     setError("")
     setLoading(true)
-    
+
     try {
       const res = await authenticateAdmin(email, password)
-      
+
       if (res.success) {
         window.location.href = "/billing"
       } else {
@@ -41,7 +41,7 @@ export default function LoginPage() {
             Hanuman Paints
           </h2>
           <p className="mt-2 text-center text-sm text-text-muted">
-            Retail POS Admin Login
+            Admin Login
           </p>
         </div>
 

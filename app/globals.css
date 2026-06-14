@@ -44,23 +44,7 @@ body {
   background: #94a3b8;
 }
 
-/* Print Styles */
-@media print {
-  * {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-  }
-  body {
-      margin: 0;
-      padding: 0;
-  }
-  ::-webkit-scrollbar {
-      display: none;
-  }
-  .no-print {
-      display: none !important;
-  }
-}
+
 
 /* Product Combobox Fixed Dropdown */
 .product-dropdown {

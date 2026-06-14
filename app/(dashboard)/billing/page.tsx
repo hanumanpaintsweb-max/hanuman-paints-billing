@@ -19,121 +19,6 @@ interface BillItem {
   colorantCost: number;
 }
 
-const BillCopy = ({ 
-  pageItems, idx, title, billNumber, billDate, customerName, customerPhone, customerAddress, 
-  totals, paymentStatus, shopSettings, isLastPage 
-}: any) => (
-  <div style={{ width: '48%', fontFamily: 'Arial, sans-serif', fontSize: '11px', padding: '8px' }}>
-    {/* Header */}
-    <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '6px', marginBottom: '6px' }}>
-      <div style={{ fontSize: '16px', fontWeight: '900' }}>{shopSettings.shop_name}</div>
-      <div>{shopSettings.tagline}</div>
-      <div>{shopSettings.address}</div>
-      <div>Ph: {shopSettings.phone}</div>
-      <div style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold', display: 'inline-block', border: '1px solid #000', padding: '1px 6px', borderRadius: '4px' }}>{title}</div>
-    </div>
-
-    {/* Bill Info */}
-    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '4px', fontSize: '10px' }}>
-      <span>Bill No: <strong>{billNumber}</strong></span>
-      <span>Date: <strong>{format(new Date(billDate), 'dd/MM/yyyy')}</strong></span>
-    </div>
-
-    {/* Customer */}
-    <div style={{ borderBottom: '1px solid #000', padding: '3px 0', marginBottom: '6px', fontSize: '10px' }}>
-      <div>Customer: <strong>{customerName}</strong></div>
-      <div>Phone: {customerPhone}</div>
-      {customerAddress && <div>{customerAddress}</div>}
-    </div>
-
-    {/* Items Table */}
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6px', fontSize: '9px' }}>
-      <thead>
-        <tr style={{ background: '#000', color: '#fff' }}>
-          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '8%' }}>S.No</th>
-          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '36%', textAlign: 'left' }}>Item</th>
-          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '12%' }}>Size</th>
-          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '8%' }}>Qty</th>
-          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '16%', textAlign: 'right' }}>Rate</th>
-          <th style={{ padding: '3px 2px', border: '1px solid #000', width: '20%', textAlign: 'right' }}>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {pageItems.map((item: any, i: number) => (
-          <Fragment key={i}>
-            <tr>
-              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'center' }}>{idx * 5 + i + 1}</td>
-              <td style={{ padding: '3px 2px', border: '1px solid #000' }}>{item.name}</td>
-              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.size}</td>
-              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'center' }}>{item.qty}</td>
-              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>
-              <td style={{ padding: '3px 2px', border: '1px solid #000', textAlign: 'right' }}>₹{item.itemSub.toFixed(2)}</td>
-            </tr>
-            {item.hasColorant && (
-              <tr>
-                <td></td>
-                <td colSpan={5} style={{ padding: '2px 4px', fontSize: '8px', color: '#444', borderBottom: '1px solid #eee' }}>
-                  └ Color: {item.colorCode} {item.base && `| Base: ${item.base}`} | Colorant: ₹{item.colorantCost.toFixed(2)}
-                </td>
-              </tr>
-            )}
-          </Fragment>
-        ))}
-      </tbody>
-    </table>
-
-    {/* Totals */}
-    {isLastPage && (
-      <div style={{ borderTop: '2px solid #000', paddingTop: '4px', fontSize: '10px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-          <span>Subtotal:</span>
-          <span>₹{totals.subtotal.toFixed(2)}</span>
-        </div>
-        {totals.totalColorant > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-            <span>Colorant Total:</span>
-            <span>+₹{totals.totalColorant.toFixed(2)}</span>
-          </div>
-        )}
-        {totals.discount_amount > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-            <span>Discount:</span>
-            <span>-₹{totals.discount_amount.toFixed(2)}</span>
-          </div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-          <span>Taxable:</span>
-          <span>₹{totals.taxable_value.toFixed(2)}</span>
-        </div>
-        {totals.cgst_amount > 0 && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-              <span>CGST:</span>
-              <span>+₹{totals.cgst_amount.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-              <span>SGST:</span>
-              <span>+₹{totals.sgst_amount.toFixed(2)}</span>
-            </div>
-          </>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #000', borderBottom: '2px solid #000', padding: '3px 0', margin: '3px 0', fontSize: '13px', fontWeight: '900' }}>
-          <span>GRAND TOTAL:</span>
-          <span>₹{totals.total_amount.toFixed(2)}</span>
-        </div>
-        <div style={{ fontWeight: 'bold', padding: '2px 0' }}>
-          Payment: {paymentStatus.toUpperCase()}
-        </div>
-      </div>
-    )}
-
-    {/* Footer */}
-    <div style={{ borderTop: '1px dashed #000', marginTop: '6px', paddingTop: '3px', fontSize: '8px', textAlign: 'center' }}>
-      Terms: Goods once sold cannot be returned.
-    </div>
-  </div>
-)
-
 function BillingContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -149,6 +34,11 @@ function BillingContent() {
   const [customerPhone, setCustomerPhone] = useState("")
   const [customerAddress, setCustomerAddress] = useState("")
 
+  // UI State
+  const [loading, setLoading] = useState(false)
+  const [toast, setToast] = useState("")
+  const [savedBillId, setSavedBillId] = useState<string | null>(null)
+
   // Products
   const [items, setItems] = useState<BillItem[]>([
     { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
@@ -162,10 +52,7 @@ function BillingContent() {
   const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid">("paid")
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "both">("cash")
 
-  // UI State
-  const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState("")
-  const [showPrintModal, setShowPrintModal] = useState(false)
+
   
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
@@ -401,14 +288,20 @@ function BillingContent() {
     }
 
     // Insert bill directly
-    const { error } = await supabase
+    const { data: insertedData, error } = await supabase
       .from('bills')
       .insert([billData])
+      .select('id')
+      .single()
 
     if (error) {
       alert("Error saving bill: " + error.message)
       setLoading(false)
-      return
+      return null
+    }
+
+    if (insertedData) {
+      setSavedBillId(insertedData.id)
     }
 
     // If unpaid, save ledger separately
@@ -459,14 +352,22 @@ function BillingContent() {
     router.refresh()
     
     setLoading(false)
+    return insertedData?.id
   }
 
   const formatCurrency = (num: number) => {
     return num.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
   }
 
-  const handlePrint = () => {
-    setShowPrintModal(true)
+  const handlePrint = async () => {
+    if (savedBillId) {
+      window.open(`/print/${savedBillId}`, '_blank')
+    } else {
+      const newId = await handleSave()
+      if (newId) {
+        window.open(`/print/${newId}`, '_blank')
+      }
+    }
   }
 
   const handleWhatsApp = () => {
@@ -480,14 +381,6 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
     const url = `https://wa.me/91${customerPhone}?text=${encodeURIComponent(text)}`
     window.open(url, '_blank')
   }
-
-  // Print Chunking (5 items per page)
-  const ITEMS_PER_PAGE = 5
-  const printChunks = []
-  for (let i = 0; i < calculatedItems.length; i += ITEMS_PER_PAGE) {
-    printChunks.push(calculatedItems.slice(i, i + ITEMS_PER_PAGE))
-  }
-  if (printChunks.length === 0) printChunks.push([])
 
   return (
     <>
@@ -868,109 +761,7 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
         </div>
       </div>
 
-      {/* Modal Preview Overlay */}
-      {showPrintModal && (
-        <div className="fixed inset-0 z-[99999] bg-[#e5e7eb] flex flex-col no-print overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-border-default bg-white shadow-sm shrink-0">
-            <h2 className="text-xl font-bold text-text-main">Bill Preview</h2>
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setShowPrintModal(false)}
-                className="px-4 py-2 border border-border-default rounded text-sm font-medium hover:bg-surface-container bg-white"
-              >
-                Close
-              </button>
-              <button 
-                onClick={() => window.print()}
-                className="px-6 py-2 bg-primary text-white rounded font-bold shadow hover:bg-active-blue"
-              >
-                Print
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center">
-            <style type="text/css">
-              {`
-                @media print {
-                  @page {
-                    size: A4 landscape;
-                    margin: 8mm;
-                  }
-                  body * { 
-                    visibility: hidden; 
-                  }
-                  #print-modal-content { 
-                    visibility: visible;
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                  }
-                  #print-modal-content * { 
-                    visibility: visible; 
-                  }
-                  .no-print { 
-                    display: none !important; 
-                  }
-                }
-              `}
-            </style>
 
-            <div id="print-modal-content" className="w-[297mm] bg-white shadow-lg print:shadow-none print:w-full">
-              {printChunks.map((pageItems, idx) => (
-                <div 
-                  key={idx} 
-                  style={{ 
-                    pageBreakAfter: idx < printChunks.length - 1 ? 'always' : 'avoid',
-                    display: 'flex',
-                    gap: '8px',
-                    alignItems: 'flex-start',
-                    width: '100%',
-                    padding: '8px',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  {/* Left copy */}
-                  <BillCopy 
-                    pageItems={pageItems} 
-                    idx={idx} 
-                    title="ORIGINAL" 
-                    billNumber={billNumber}
-                    billDate={billDate}
-                    customerName={customerName}
-                    customerPhone={customerPhone}
-                    customerAddress={customerAddress}
-                    totals={totals}
-                    paymentStatus={paymentStatus}
-                    shopSettings={shopSettings}
-                    isLastPage={idx === printChunks.length - 1}
-                  />
-                  
-                  {/* Dotted divider */}
-                  <div style={{ borderLeft: '2px dashed #999', alignSelf: 'stretch' }} />
-                  
-                  {/* Right copy */}
-                  <BillCopy 
-                    pageItems={pageItems} 
-                    idx={idx} 
-                    title="DUPLICATE" 
-                    billNumber={billNumber}
-                    billDate={billDate}
-                    customerName={customerName}
-                    customerPhone={customerPhone}
-                    customerAddress={customerAddress}
-                    totals={totals}
-                    paymentStatus={paymentStatus}
-                    shopSettings={shopSettings}
-                    isLastPage={idx === printChunks.length - 1}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Toast Notification */}
       {toast && (
