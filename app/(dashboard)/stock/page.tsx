@@ -23,7 +23,7 @@ export default function StockPage() {
     setLoading(true)
     const { data } = await supabase
       .from("products")
-      .select("id, name, category, unit, current_stock")
+      .select("id, name, category, unit, current_stock, mrp")
       .eq("is_active", true)
       .order("current_stock", { ascending: true }) // Lowest stock first
 
@@ -72,6 +72,20 @@ export default function StockPage() {
     setIsModalOpen(false)
     setSaving(false)
     fetchStock()
+  }
+
+  const handleMRPUpdate = async (id: string, newMrp: string) => {
+    const numericMrp = parseFloat(newMrp);
+    
+    // Optimistic UI Update
+    setProducts(products.map(p => p.id === id ? { ...p, mrp: newMrp === "" ? null : numericMrp || p.mrp } : p));
+    
+    // DB Update
+    if (!isNaN(numericMrp)) {
+      await supabase.from("products").update({ mrp: numericMrp }).eq("id", id);
+    } else if (newMrp === "") {
+      await supabase.from("products").update({ mrp: null }).eq("id", id);
+    }
   }
 
   return (
@@ -138,17 +152,18 @@ export default function StockPage() {
                 <th className="px-6 py-4 font-semibold">Category</th>
                 <th className="px-6 py-4 font-semibold">Unit</th>
                 <th className="px-6 py-4 font-semibold text-center">Current Stock</th>
+                <th className="px-6 py-4 font-semibold text-right">MRP</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-text-muted">Loading stock...</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-text-muted">Loading stock...</td>
                 </tr>
               ) : filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-text-muted">No products found.</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-text-muted">No products found.</td>
                 </tr>
               ) : (
                 filteredProducts.map(p => (
@@ -164,6 +179,18 @@ export default function StockPage() {
                       }`}>
                         {p.current_stock}
                       </span>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <div className="flex justify-end items-center gap-1">
+                        <span className="text-text-muted text-xs">₹</span>
+                        <input 
+                          type="number"
+                          value={p.mrp !== null && p.mrp !== undefined ? p.mrp : ''}
+                          onChange={(e) => handleMRPUpdate(p.id, e.target.value)}
+                          className="w-20 px-2 py-1.5 text-right border border-border-default rounded focus:border-primary outline-none font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </td>
                     <td className="px-6 py-3 text-right">
                       <button 

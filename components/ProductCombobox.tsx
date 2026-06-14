@@ -9,11 +9,12 @@ export interface Product {
   unit: string;
   category: string;
   type: string;
+  mrp?: number;
 }
 
 interface ProductComboboxProps {
   value: string;
-  onChange: (name: string, unit?: string) => void;
+  onChange: (name: string, unit?: string, mrp?: number) => void;
   products: Product[];
 }
 
@@ -65,13 +66,16 @@ export function ProductCombobox({ value, onChange, products }: ProductComboboxPr
                   key={p.id}
                   onClick={() => {
                     setSearchTerm(p.name)
-                    onChange(p.name, p.unit)
+                    onChange(p.name, p.unit, p.mrp)
                     setIsOpen(false)
                   }}
                   className="cursor-pointer px-3 py-2 hover:bg-surface-container border-b border-border-default last:border-0"
                 >
                   <div className="font-medium text-sm text-text-main">{p.name}</div>
-                  <div className="text-xs text-text-muted">{p.category || 'Uncategorized'} • {p.unit}</div>
+                  <div className="text-xs text-text-muted">
+                    {p.category || 'Uncategorized'} • {p.unit}
+                    {p.mrp !== undefined && p.mrp !== null ? ` • MRP: ₹${p.mrp}` : ''}
+                  </div>
                 </li>
               ))}
               {searchTerm && !filtered.find(p => p.name.toLowerCase() === searchTerm.toLowerCase()) && (

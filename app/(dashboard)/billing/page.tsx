@@ -13,7 +13,7 @@ interface BillItem {
   size: string;
   base: string;
   qty: number;
-  price: number;
+  rate: number;
   hasColorant: boolean;
   colorCode: string;
   colorantCost: number;
@@ -36,7 +36,7 @@ function BillingContent() {
 
   // Products
   const [items, setItems] = useState<BillItem[]>([
-    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
+    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
   ])
 
   // Global Financial Modifiers
@@ -76,7 +76,7 @@ function BillingContent() {
     const fetchProducts = async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, unit, category, type")
+        .select("id, name, unit, category, type, mrp")
         .eq("is_active", true)
         .order("name", { ascending: true })
       
@@ -100,12 +100,12 @@ function BillingContent() {
             size: i.size || "",
             base: i.base || "",
             qty: i.qty || 1,
-            price: i.price || 0,
+            rate: i.rate !== undefined ? i.rate : (i.price || 0),
             hasColorant: i.hasColorant || false,
             colorCode: i.colorCode || "",
             colorantCost: i.colorantCost || 0
           }))
-          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
 
           if (data.subtotal && data.subtotal > 0 && data.discount_amount) {
             setDiscountPercent((data.discount_amount / data.subtotal) * 100)
@@ -132,7 +132,7 @@ function BillingContent() {
   // Calculations
   const calculatedItems = useMemo(() => {
     return items.map(item => {
-      const basePrice = Math.max(0, item.qty * item.price)
+      const basePrice = Math.max(0, item.qty * item.rate)
       const colorant = Math.max(0, item.hasColorant ? item.colorantCost : 0)
       const itemSub = Math.max(0, basePrice + colorant)
       return { ...item, basePrice, colorant, itemSub }
@@ -161,7 +161,7 @@ function BillingContent() {
   }, [calculatedItems, discountPercent, globalGst])
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
   }
 
   const handleRemoveItem = (id: string) => {
@@ -172,10 +172,15 @@ function BillingContent() {
     setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
   }
 
-  const handleProductSelect = (id: string, name: string, unit?: string) => {
+  const handleProductSelect = (id: string, name: string, unit?: string, mrp?: number) => {
     setItems(items.map(i => {
       if (i.id === id) {
-        return { ...i, name, size: unit !== undefined ? unit : i.size }
+        return { 
+          ...i, 
+          name, 
+          size: unit !== undefined ? unit : i.size,
+          rate: mrp !== undefined && mrp !== null ? mrp : i.rate
+        }
       }
       return i
     }))
@@ -275,7 +280,7 @@ function BillingContent() {
     setCustomerName("")
     setCustomerPhone("")
     setCustomerAddress("")
-    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, price: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
     setDiscountPercent(0)
     setGlobalGst("")
     setPaymentStatus("paid")
@@ -422,7 +427,7 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                           <div className="flex flex-col gap-2">
                             <ProductCombobox 
                               value={item.name} 
-                              onChange={(name, unit) => handleProductSelect(item.id, name, unit)}
+                              onChange={(name, unit, mrp) => handleProductSelect(item.id, name, unit, mrp)}
                               products={dbProducts} 
                             />
                             <div className="flex items-center gap-2 mt-1">
@@ -492,8 +497,8 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                         <td className="px-4 py-3 align-middle">
                           <input 
                             type="number" 
-                            value={item.price || ''}
-                            onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                            value={item.rate || ''}
+                            onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)}
                             className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder="0.00"
                           />
@@ -747,7 +752,7 @@ Date: ${format(new Date(billDate), 'dd/MM/yyyy')}`
                       {item.base && <div className="text-[9px] text-gray-700">Base: {item.base}</div>}
                     </td>
                     <td className="py-1 align-top text-center">{item.qty}</td>
-                    <td className="py-1 align-top text-right">{item.price.toFixed(2)}</td>
+                    <td className="py-1 align-top text-right">{item.rate.toFixed(2)}</td>
                     <td className="py-1 align-top text-right font-mono">{item.itemSub.toFixed(2)}</td>
                   </tr>
                 ))}
