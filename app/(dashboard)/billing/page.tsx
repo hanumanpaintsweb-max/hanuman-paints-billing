@@ -217,16 +217,28 @@ function BillingContent() {
       }
     }
 
-    // We will do a regular save as if it's a new bill or overridden bill
-    const { error } = await supabase.rpc('save_bill_with_ledger', {
-      p_bill: billData,
-      p_ledger: ledgerData
-    })
+    // Insert bill directly
+    const { data: savedBill, error } = await supabase
+      .from('bills')
+      .insert([billData])
+      .select()
+      .single()
 
     if (error) {
       alert("Error saving bill: " + error.message)
       setLoading(false)
       return
+    }
+
+    // If unpaid, save ledger separately
+    if (paymentStatus === 'unpaid' && ledgerData) {
+      const { error: ledgerError } = await supabase
+        .from('ledger')
+        .insert([ledgerData])
+      
+      if (ledgerError) {
+        console.error("Error saving ledger:", ledgerError)
+      }
     }
 
     const warnings: string[] = []
