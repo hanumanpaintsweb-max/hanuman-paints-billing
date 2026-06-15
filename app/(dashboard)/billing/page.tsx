@@ -389,6 +389,11 @@ function BillingContent() {
 
     if (successId || editId) {
       setTimeout(() => {
+        const afterPrint = () => {
+          resetForm();
+          window.removeEventListener('afterprint', afterPrint);
+        };
+        window.addEventListener('afterprint', afterPrint);
         window.print();
       }, 300);
     }

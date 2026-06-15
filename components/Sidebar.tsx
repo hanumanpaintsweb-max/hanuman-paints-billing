@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart } from "lucide-react"
+import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart, PlusCircle } from "lucide-react"
 import { logoutAdmin } from "@/app/actions/auth"
 
 export default function Sidebar() {
@@ -36,6 +36,13 @@ export default function Sidebar() {
             <p className="text-sm font-medium text-text-muted">Admin Panel</p>
           </div>
         </div>
+      </div>
+      
+      <div className="mb-4 px-6">
+        <a href="/billing" className="flex items-center justify-center gap-2 w-full py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 transition-colors shadow-sm">
+          <PlusCircle className="h-5 w-5" />
+          <span>New Bill</span>
+        </a>
       </div>
       
       <nav className="flex-1 overflow-y-auto">
