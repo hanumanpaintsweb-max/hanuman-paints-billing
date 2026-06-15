@@ -11,6 +11,7 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all')
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -54,7 +55,15 @@ export default function StockPage() {
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = categoryFilter === "all" || p.category === categoryFilter
-    return matchesSearch && matchesCategory
+    
+    let matchesStock = true;
+    if (stockFilter === 'low') {
+      matchesStock = p.current_stock > 0 && p.current_stock < 5;
+    } else if (stockFilter === 'out') {
+      matchesStock = p.current_stock <= 0;
+    }
+    
+    return matchesSearch && matchesCategory && matchesStock;
   })
 
   const totals = {
@@ -164,21 +173,44 @@ export default function StockPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card-bg border border-border-default rounded p-5 shadow-sm">
+        <div 
+          onClick={() => setStockFilter('all')}
+          className={`border rounded p-5 shadow-sm cursor-pointer transition-all ${
+            stockFilter === 'all' 
+              ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200' 
+              : 'bg-card-bg border-border-default hover:border-blue-300 hover:bg-slate-50'
+          }`}
+        >
           <div className="flex items-center gap-3 mb-2 text-text-muted">
             <Package className="h-5 w-5 text-blue-500" />
             <span className="font-medium">Total Products</span>
           </div>
           <h2 className="text-2xl font-bold text-text-main font-mono">{totals.totalProducts}</h2>
         </div>
-        <div className="bg-card-bg border border-error/30 bg-error/5 rounded p-5 shadow-sm">
+        
+        <div 
+          onClick={() => setStockFilter('low')}
+          className={`border rounded p-5 shadow-sm cursor-pointer transition-all ${
+            stockFilter === 'low'
+              ? 'bg-red-50 border-red-500 ring-2 ring-red-200'
+              : 'bg-error/5 border-error/30 hover:border-red-300 hover:bg-red-50/50'
+          }`}
+        >
           <div className="flex items-center gap-3 mb-2 text-error">
             <AlertTriangle className="h-5 w-5" />
             <span className="font-medium">Low Stock (&lt;5)</span>
           </div>
           <h2 className="text-2xl font-bold text-error font-mono">{totals.lowStock}</h2>
         </div>
-        <div className="bg-card-bg border border-gray-300 bg-gray-50 rounded p-5 shadow-sm">
+        
+        <div 
+          onClick={() => setStockFilter('out')}
+          className={`border rounded p-5 shadow-sm cursor-pointer transition-all ${
+            stockFilter === 'out'
+              ? 'bg-gray-100 border-gray-500 ring-2 ring-gray-200'
+              : 'bg-gray-50 border-gray-300 hover:border-gray-400 hover:bg-gray-100/50'
+          }`}
+        >
           <div className="flex items-center gap-3 mb-2 text-gray-700">
             <XCircle className="h-5 w-5" />
             <span className="font-medium">Out of Stock</span>
