@@ -86,6 +86,7 @@ export default function ProductsPage() {
       id: crypto.randomUUID(),
       name: newName.trim(),
       category: newCategory,
+      categoryId: newCategory,
       unit: newUnit,
       base_mrp: Number(newMrp),
       is_active: true,
@@ -136,6 +137,7 @@ export default function ProductsPage() {
     const updatedData = {
       name: editName.trim(),
       category: editCategory,
+      categoryId: editCategory,
       unit: editUnit,
       base_mrp: Number(editMrp)
     }
