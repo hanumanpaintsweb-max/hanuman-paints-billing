@@ -390,9 +390,6 @@ function BillingContent() {
     if (successId || editId) {
       setTimeout(() => {
         window.print();
-        setTimeout(() => {
-          resetForm();
-        }, 1500);
       }, 300);
     }
   }
