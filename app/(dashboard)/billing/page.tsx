@@ -758,21 +758,28 @@ function BillingContent() {
             display: none;
           }
           @media print {
+            /* Hide everything else safely */
+            body * {
+              visibility: hidden;
+            }
+            
+            /* Show ONLY the print container and its children */
+            .print-container, .print-container * {
+              visibility: visible;
+            }
+            
             .print-container {
               display: block !important;
-              position: fixed !important;
+              position: absolute !important;
               top: 0 !important;
               left: 0 !important;
-              width: 100vw !important;
-              height: 100vh !important;
+              width: 100% !important;
+              margin: 0 !important;
               background: white !important;
-              z-index: 999999 !important;
             }
-            body > *:not(.print-container) {
-              display: none !important;
-            }
+
             @page { size: 148mm 210mm; margin: 0; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; background: white; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; background: white; }
             
             .bill-page { 
               width: 148mm;
