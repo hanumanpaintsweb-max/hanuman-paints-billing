@@ -83,6 +83,7 @@ export default function ProductsPage() {
 
     setLoading(true)
     const newProductData = {
+      id: crypto.randomUUID(),
       name: newName.trim(),
       category: newCategory,
       unit: newUnit,
@@ -217,22 +218,22 @@ export default function ProductsPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-slate-600 uppercase">Base MRP (₹) *</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={newMrp}
-                onChange={(e) => setNewMrp(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                placeholder="0.00"
-                className="h-9 px-3 flex-1 rounded border border-gray-300 text-sm focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="h-9 px-4 bg-green-600 text-white rounded font-medium text-sm hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
-              >
-                Save
-              </button>
-            </div>
+            <input
+              type="number"
+              value={newMrp}
+              onChange={(e) => setNewMrp(e.target.value === "" ? "" : parseFloat(e.target.value))}
+              placeholder="0.00"
+              className="w-full h-9 px-3 rounded border border-gray-300 text-sm focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+          <div className="md:col-span-5 flex justify-end mt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-2 bg-green-600 text-white rounded font-medium text-sm hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
+            >
+              Save
+            </button>
           </div>
         </form>
       )}
