@@ -694,7 +694,7 @@ function BillingContent() {
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Discount</h3>
               <div className="flex flex-wrap gap-2 mb-3">
-                {[0, 5, 10, 15].map(pct => (
+                {[0, 15, 20, 30].map(pct => (
                   <button
                     key={pct}
                     onClick={() => setDiscountPercent(pct)}
