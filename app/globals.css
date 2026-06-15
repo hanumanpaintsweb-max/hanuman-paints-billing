@@ -58,3 +58,18 @@ body {
   overflow-y: auto;
   min-width: 300px;
 }
+
+@media print {
+  /* Sidebar aur Nav ki space ko poori tarah hata do */
+  aside, nav, header, [class*="w-64"], [class*="sidebar"] {
+    display: none !important;
+    width: 0 !important;
+  }
+  
+  /* Main content wrapper ki padding zero kar do taaki bill left se chipak jaye */
+  main, .flex-1 {
+    padding: 0 !important;
+    margin: 0 !important;
+    position: static !important;
+  }
+}
