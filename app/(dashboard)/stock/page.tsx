@@ -34,6 +34,7 @@ export default function StockPage() {
       const fallback = await supabase
         .from('products')
         .select('id, name, category, unit, current_stock')
+        .eq('is_active', true)
         .order('name')
         
       if (fallback.data) {
