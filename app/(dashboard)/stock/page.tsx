@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
-import { Search, BarChart, Package, AlertTriangle, XCircle, Edit, Loader2, Save } from "lucide-react"
+import { Search, BarChart, Package, AlertTriangle, XCircle, Loader2, Save } from "lucide-react"
 
 const CATEGORIES = ["Emulsion", "Enamel", "Primer", "Putty", "Thinner", "Waterproofing", "Hardware", "Tools/Brushes", "Other"]
 
@@ -13,11 +13,6 @@ export default function StockPage() {
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all')
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<any>(null)
-  const [stockType, setStockType] = useState<"add" | "remove">("add")
-  const [stockQty, setStockQty] = useState<number | "">("")
   const [saving, setSaving] = useState(false)
   const [modifiedIds, setModifiedIds] = useState<Set<string>>(new Set())
 
@@ -26,22 +21,11 @@ export default function StockPage() {
     
     let { data, error } = await supabase
       .from('products')
-      .select('id, name, category, unit, current_stock, is_active, mrp:base_mrp')
+      .select('id, name, category, unit, current_stock, is_active')
       .eq('is_active', true)
       .order('name')
 
-    if (error) {
-      // Fallback if is_active or mrp doesn't exist
-      const fallback = await supabase
-        .from('products')
-        .select('id, name, category, unit, current_stock')
-        .eq('is_active', true)
-        .order('name')
-        
-      if (fallback.data) {
-        setProducts(fallback.data)
-      }
-    } else if (data) {
+    if (data) {
       setProducts(data)
     }
     
@@ -72,43 +56,6 @@ export default function StockPage() {
     outOfStock: products.filter(p => p.current_stock <= 0).length
   }
 
-  const openStockModal = (product: any) => {
-    setSelectedProduct(product)
-    setStockType("add")
-    setStockQty("")
-    setIsModalOpen(true)
-  }
-
-  const handleUpdateStock = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedProduct || !stockQty) return
-    setSaving(true)
-
-    const qty = typeof stockQty === "string" ? parseInt(stockQty) : stockQty
-    const newStock = stockType === "add" 
-      ? selectedProduct.current_stock + qty 
-      : Math.max(0, selectedProduct.current_stock - qty)
-
-    await supabase
-      .from("products")
-      .update({ current_stock: newStock })
-      .eq("id", selectedProduct.id)
-
-    setIsModalOpen(false)
-    setSaving(false)
-    fetchStock()
-  }
-
-  const handleMRPUpdate = (id: string, newMrp: string) => {
-    const numericMrp = parseFloat(newMrp);
-    setProducts(products.map(p => p.id === id ? { ...p, mrp: newMrp === "" ? null : numericMrp || p.mrp } : p));
-    setModifiedIds(prev => {
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
-  }
-
   const handleStockUpdate = (id: string, newStock: string) => {
     const numericStock = parseInt(newStock);
     if (!isNaN(numericStock)) {
@@ -129,10 +76,6 @@ export default function StockPage() {
       const p = products.find(prod => prod.id === id)
       if (p) {
         const updatePayload: any = { current_stock: p.current_stock }
-        if (p.mrp !== undefined) {
-          updatePayload.base_mrp = p.mrp
-        }
-        
         const { error } = await supabase.from('products').update(updatePayload).eq('id', p.id)
         if (error) {
            console.error("Failed to update", p.name, error)
@@ -248,27 +191,25 @@ export default function StockPage() {
               <tr>
                 <th className="px-6 py-4 font-semibold">Product Name</th>
                 <th className="px-6 py-4 font-semibold">Category</th>
-                <th className="px-6 py-4 font-semibold">Unit</th>
+                <th className="px-6 py-4 font-semibold text-center">Unit</th>
                 <th className="px-6 py-4 font-semibold text-center">Current Stock</th>
-                <th className="px-6 py-4 font-semibold text-right">MRP</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-text-muted">Loading stock...</td>
+                  <td colSpan={4} className="px-6 py-8 text-center text-text-muted">Loading stock...</td>
                 </tr>
               ) : filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-text-muted">No products found.</td>
+                  <td colSpan={4} className="px-6 py-8 text-center text-text-muted">No products found.</td>
                 </tr>
               ) : (
                 filteredProducts.map(p => (
                   <tr key={p.id} className="hover:bg-surface-bg transition-colors">
                     <td className="px-6 py-3 font-medium text-text-main">{p.name}</td>
                     <td className="px-6 py-3 text-text-muted">{p.category}</td>
-                    <td className="px-6 py-3 text-text-muted">{p.unit || '-'}</td>
+                    <td className="px-6 py-3 text-center text-text-muted">{p.unit || '-'}</td>
                     <td className="px-6 py-3 text-center">
                       <input 
                         type="number"
@@ -281,26 +222,6 @@ export default function StockPage() {
                         }`}
                       />
                     </td>
-                    <td className="px-6 py-3 text-right">
-                      <div className="flex justify-end items-center gap-1">
-                        <span className="text-text-muted text-xs">₹</span>
-                        <input 
-                          type="number"
-                          value={p.mrp !== null && p.mrp !== undefined ? p.mrp : ''}
-                          onChange={(e) => handleMRPUpdate(p.id, e.target.value)}
-                          className="w-20 px-2 py-1.5 text-right border border-border-default rounded focus:border-primary outline-none font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <button 
-                        onClick={() => openStockModal(p)}
-                        className="h-8 px-3 bg-white border border-border-default text-text-main rounded text-xs font-bold hover:bg-surface-container transition-colors shadow-sm inline-flex items-center gap-2"
-                      >
-                        <Edit className="h-3 w-3" /> Update Stock
-                      </button>
-                    </td>
                   </tr>
                 ))
               )}
@@ -308,57 +229,6 @@ export default function StockPage() {
           </table>
         </div>
       </div>
-
-      {/* Stock Update Modal */}
-      {isModalOpen && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-card-bg w-full max-w-sm rounded-lg shadow-xl flex flex-col">
-            <div className="p-4 border-b border-border-default flex justify-between items-center bg-surface rounded-t-lg">
-              <h2 className="text-lg font-bold">Update Stock</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-text-muted hover:text-text-main">✕</button>
-            </div>
-            <form onSubmit={handleUpdateStock} className="p-5 flex flex-col gap-4">
-              <div>
-                <p className="text-sm font-medium text-text-main">{selectedProduct.name}</p>
-                <p className="text-xs text-text-muted">Current Stock: <strong className="font-mono">{selectedProduct.current_stock}</strong></p>
-              </div>
-
-              <div className="flex gap-4 mb-2">
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input 
-                    type="radio" name="stockType" checked={stockType === 'add'} onChange={() => setStockType('add')}
-                    className="text-primary focus:ring-primary accent-primary"
-                  /> Add (+)
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-error">
-                  <input 
-                    type="radio" name="stockType" checked={stockType === 'remove'} onChange={() => setStockType('remove')}
-                    className="text-error focus:ring-error accent-error"
-                  /> Remove (-)
-                </label>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium">Quantity to {stockType === 'add' ? 'Add' : 'Remove'}</label>
-                <input 
-                  required type="number" min="1" value={stockQty} onChange={e => setStockQty(parseInt(e.target.value) || "")}
-                  className="h-10 px-3 rounded border border-border-default focus:border-primary outline-none"
-                  placeholder="e.g. 10"
-                />
-              </div>
-
-              <div className="mt-2 flex justify-end gap-3 border-t border-border-default pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-text-muted hover:text-text-main">
-                  Cancel
-                </button>
-                <button type="submit" disabled={saving} className={`px-4 py-2 text-white rounded text-sm font-bold shadow-sm disabled:opacity-70 flex items-center gap-2 ${stockType === 'add' ? 'bg-primary hover:bg-active-blue' : 'bg-error hover:bg-red-700'}`}>
-                  {saving && <Loader2 className="h-4 w-4 animate-spin" />} Update
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

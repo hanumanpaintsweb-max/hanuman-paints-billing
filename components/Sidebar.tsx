@@ -1,12 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart, PlusCircle } from "lucide-react"
-import { logoutAdmin } from "@/app/actions/auth"
+import { supabase } from "@/lib/supabase"
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
 
   const navItems = [
     { name: "Billing", path: "/billing", icon: Receipt },
@@ -20,8 +21,8 @@ export default function Sidebar() {
   ]
 
   const handleLogout = async () => {
-    await logoutAdmin()
-    window.location.href = "/login"
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   return (
