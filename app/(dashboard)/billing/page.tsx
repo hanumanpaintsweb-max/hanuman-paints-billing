@@ -844,9 +844,9 @@ function BillingContent() {
             }
             .bill-page:last-child { page-break-after: avoid; }
             
-            table { width: 100%; border-collapse: collapse; margin-top: 5px; margin-bottom: 5px; }
-            th { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 2px 4px; text-align: left; font-size: 10px; font-weight: bold; }
-            td { padding: 2px 4px; font-size: 10px; border: none; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }
+            th { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 8px 4px; text-align: left; font-size: 11px; font-weight: bold; }
+            td { padding: 8px 4px; font-size: 11px; border: none; vertical-align: top; }
             
             .text-right { text-align: right; }
             .text-center { text-align: center; }
@@ -855,7 +855,7 @@ function BillingContent() {
             .totals-container {
               display: flex;
               justify-content: flex-end;
-              margin-top: 5px;
+              margin-top: 10px;
             }
             .totals-box {
               width: 60%;
@@ -863,17 +863,17 @@ function BillingContent() {
             .totals-row {
               display: flex;
               justify-content: space-between;
-              padding: 2px 0;
-              font-size: 10px;
+              padding: 4px 0;
+              font-size: 11px;
             }
             .grand-total-row {
               display: flex;
               justify-content: space-between;
-              padding: 4px 0;
-              font-size: 12px;
+              padding: 6px 0;
+              font-size: 14px;
               font-weight: bold;
               border-top: 1px solid #000;
-              margin-top: 2px;
+              margin-top: 4px;
             }
 
             .footer-block {
@@ -881,7 +881,7 @@ function BillingContent() {
               bottom: 5mm;
               left: 10mm;
               right: 10mm;
-              font-size: 9px;
+              font-size: 10px;
             }
           }
         `}</style>
@@ -890,32 +890,32 @@ function BillingContent() {
           <div key={idx} className="bill-page mx-auto">
 
             {/* HEADER (Centered) */}
-            <div style={{ textAlign: 'center', marginBottom: '5px' }}>
-              <div style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                 {shopSettings.shop_name}
               </div>
-              <div style={{ fontSize: '10px', marginTop: '2px' }}>{shopSettings.tagline}</div>
-              <div style={{ fontSize: '10px' }}>{shopSettings.address}</div>
-              <div style={{ fontSize: '10px' }}>Ph: {shopSettings.phone}</div>
+              <div style={{ fontSize: '11px', marginTop: '3px' }}>{shopSettings.tagline}</div>
+              <div style={{ fontSize: '11px' }}>{shopSettings.address}</div>
+              <div style={{ fontSize: '11px' }}>Ph: {shopSettings.phone}</div>
             </div>
 
             {/* TAX INVOICE TITLE */}
-            <div style={{ textAlign: 'center', marginBottom: '5px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 'bold' }}>TAX INVOICE</div>
-              <div style={{ fontSize: '10px', fontWeight: 'bold', marginTop: '1px' }}>Bill: {billNumber}</div>
+            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>TAX INVOICE</div>
+              <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '2px' }}>Bill: {billNumber}</div>
             </div>
 
-            <div style={{ borderTop: '1px solid #000', marginBottom: '5px' }}></div>
+            <div style={{ borderTop: '1px solid #000', marginBottom: '10px' }}></div>
 
             {/* CUSTOMER & DATE INFO */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '5px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '10px' }}>
               <div>
                 <div>Bill To: <span className="font-bold">{customerName}</span></div>
-                <div style={{ marginTop: '1px' }}>Phone: {customerPhone}</div>
+                <div style={{ marginTop: '3px' }}>Phone: {customerPhone}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div>Date: {format(new Date(billDate), "dd-MM-yyyy")}</div>
-                <div style={{ marginTop: '1px' }}>Type: {billType}</div>
+                <div style={{ marginTop: '3px' }}>Type: {billType}</div>
               </div>
             </div>
 
@@ -923,26 +923,38 @@ function BillingContent() {
             <table>
               <thead>
                 <tr>
-                  <th>Item Description</th>
-                  <th style={{ width: '40px', textAlign: 'center' }}>Qty</th>
-                  <th style={{ width: '60px', textAlign: 'right' }}>Rate</th>
-                  <th style={{ width: '60px', textAlign: 'right' }}>Amount</th>
+                  <th style={{ width: '8%' }}>S.No</th>
+                  <th style={{ width: '38%' }}>Item</th>
+                  <th style={{ width: '12%', textAlign: 'center' }}>Size</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Qty</th>
+                  <th style={{ width: '16%', textAlign: 'right' }}>Price</th>
+                  <th style={{ width: '16%', textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {pageItems.map((item, i) => (
-                  <tr key={i}>
-                    <td>
-                      <div className="font-bold">{item.name}</div>
-                      <div style={{ fontSize: '9px', marginTop: '1px', color: '#333' }}>
-                        {item.size} {item.base}
-                        {item.hasColorant && ` (+ Col: ${item.colorCode})`}
-                      </div>
-                    </td>
-                    <td className="text-center">{item.qty}</td>
-                    <td className="text-right">{item.rate.toFixed(2)}</td>
-                    <td className="text-right">{item.itemSub.toFixed(2)}</td>
-                  </tr>
+                  <Fragment key={i}>
+                    <tr>
+                      <td>{idx * ITEMS_PER_PAGE + i + 1}</td>
+                      <td className="font-bold">{item.name}</td>
+                      <td className="text-center">{item.size}</td>
+                      <td className="text-center">{item.qty}</td>
+                      <td className="text-right">{item.rate.toFixed(2)}</td>
+                      <td className="text-right">{item.itemSub.toFixed(2)}</td>
+                    </tr>
+                    {item.hasColorant && (
+                      <tr>
+                        <td></td>
+                        <td colSpan={5}>
+                          <div style={{ paddingLeft: '8px', color: '#555', fontSize: '11px' }}>
+                            <div style={{ marginBottom: '2px' }}>└ Color Code: {item.colorCode}</div>
+                            {item.base && <div style={{ marginBottom: '2px' }}>└ Base: {item.base}</div>}
+                            <div>└ Colorant: ₹{item.colorantCost.toFixed(2)}</div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -987,7 +999,7 @@ function BillingContent() {
                     <span>Grand Total:</span>
                     <span>₹ {totals.total_amount.toFixed(2)}</span>
                   </div>
-                  <div style={{ fontSize: '10px', marginTop: '5px', textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', marginTop: '6px', textAlign: 'right' }}>
                     Payment Mode: {paymentStatus === 'unpaid' ? 'Unpaid' : paymentMethod.toUpperCase()}
                   </div>
                 </div>
