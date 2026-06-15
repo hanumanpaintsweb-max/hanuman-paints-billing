@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState, useMemo, useEffect, Suspense } from "react"
+import { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react"
 import { format } from "date-fns"
 import { Trash2, Plus, CheckCircle2, Save, Printer } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -23,6 +23,9 @@ function BillingContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const editId = searchParams.get('edit')
+  
+  // Security: Atomic submission lock
+  const isSubmitting = useRef(false)
 
   // Settings
   const [billType, setBillType] = useState<"MRP" | "DPL">("MRP")
@@ -48,9 +51,10 @@ function BillingContent() {
   const [discountPercent, setDiscountPercent] = useState<number>(0)
   const [globalGst, setGlobalGst] = useState<number | "">("")
 
-  // Payment
-  const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid">("paid")
+  // Payment (Added Partial Payment Support)
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid" | "partial">("paid")
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "both">("cash")
+  const [amountPaid, setAmountPaid] = useState<number | "">("")
 
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
@@ -161,7 +165,7 @@ function BillingContent() {
     loadEditBill()
   }, [editId])
 
-  // Calculations
+  // Calculations (Enforced explicit Float logic)
   const calculatedItems = useMemo(() => {
     return items.map(item => {
       const basePrice = Math.max(0, item.qty * item.rate)
@@ -186,16 +190,20 @@ function BillingContent() {
 
     const gstRate = globalGst === "" ? 0 : Number(globalGst)
     const gst_total = Math.max(0, taxable_value * (gstRate / 100))
-    const total_amount = Math.max(0, taxable_value + gst_total)
+    
+    // Explicit toFixed(2) to prevent float drift
+    const cgst = Number((gst_total / 2).toFixed(2))
+    const sgst = Number((gst_total / 2).toFixed(2))
+    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst))
 
     return {
-      subtotal: Math.max(0, subtotal),
-      totalColorant: Math.max(0, totalColorant),
-      discount_amount: Math.max(0, discount_amount),
-      taxable_value: Math.max(0, taxable_value),
-      cgst_amount: Math.max(0, gst_total / 2),
-      sgst_amount: Math.max(0, gst_total / 2),
-      total_amount: Math.max(0, Math.round(total_amount))
+      subtotal: Number(subtotal.toFixed(2)),
+      totalColorant: Number(totalColorant.toFixed(2)),
+      discount_amount: Number(discount_amount.toFixed(2)),
+      taxable_value: Number(taxable_value.toFixed(2)),
+      cgst_amount: cgst,
+      sgst_amount: sgst,
+      total_amount: total_amount
     }
   }, [calculatedItems, discountPercent, globalGst])
 
@@ -233,6 +241,7 @@ function BillingContent() {
     setDiscountPercent(0)
     setGlobalGst("")
     setPaymentStatus("paid")
+    setAmountPaid("")
     await fetchNextBillNumber()
     if (editId) {
       router.push('/admin/history')
@@ -242,6 +251,8 @@ function BillingContent() {
   }
 
   const handleSave = async (isPrintAction = false) => {
+    if (isSubmitting.current) return null; // Double-Click Lock
+    
     if (!customerName || !customerPhone || customerPhone.length < 10) {
       alert("Please enter a valid customer name and 10-digit phone number.")
       return null
@@ -250,109 +261,127 @@ function BillingContent() {
       alert("Please ensure all products have a name and quantity.")
       return null
     }
-
-    setLoading(true)
-
-    const billData: any = {
-      bill_number: billNumber,
-      customer_name: customerName,
-      customer_phone: customerPhone,
-      customer_address: customerAddress,
-      customer_gstin: null,
-      items: calculatedItems,
-      subtotal: totals.subtotal,
-      discount_amount: totals.discount_amount,
-      taxable_value: totals.taxable_value,
-      cgst_amount: totals.cgst_amount,
-      sgst_amount: totals.sgst_amount,
-      total_amount: totals.total_amount,
-      payment_status: paymentStatus,
-      payment_method: paymentStatus === 'paid' ? paymentMethod : 'unpaid',
-      bill_type: billType,
-      is_deleted: false,
-      staff_name: 'Admin'
-    }
-
-    let ledgerData = null;
-    if (paymentStatus === 'unpaid') {
-      ledgerData = {
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        type: 'receivable',
-        amount: totals.total_amount,
-        description: 'Bill ' + billNumber,
-        date: billDate,
-        status: 'pending',
-        due_date: null,
-        bill_number: billNumber
-      }
-    }
-
-    let insertedData;
-    let saveError;
-
-    if (editId) {
-      const { data, error } = await supabase
-        .from('bills')
-        .update(billData)
-        .eq('id', editId)
-        .select('id')
-        .single()
-      insertedData = data;
-      saveError = error;
-    } else {
-      const { data, error } = await supabase
-        .from('bills')
-        .insert([billData])
-        .select('id')
-        .single()
-      insertedData = data;
-      saveError = error;
-    }
-
-    if (saveError) {
-      alert("Error saving bill: " + saveError.message)
-      setLoading(false)
+    if (paymentStatus === 'partial' && (amountPaid === "" || amountPaid === 0)) {
+      alert("Please enter the partial amount paid by the customer.")
       return null
     }
 
-    if (insertedData) {
-      setSavedBillId(insertedData.id)
-    }
+    isSubmitting.current = true;
+    setLoading(true)
 
-    if (paymentStatus === 'unpaid' && ledgerData) {
-      const { error: ledgerError } = await supabase.from('ledger').insert([ledgerData])
-      if (ledgerError) console.error("Error saving ledger:", ledgerError)
-    }
+    try {
+      const billData: any = {
+        bill_number: billNumber,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_address: customerAddress,
+        customer_gstin: null,
+        items: calculatedItems,
+        subtotal: totals.subtotal,
+        discount_amount: totals.discount_amount,
+        taxable_value: totals.taxable_value,
+        cgst_amount: totals.cgst_amount,
+        sgst_amount: totals.sgst_amount,
+        total_amount: totals.total_amount,
+        payment_status: paymentStatus,
+        payment_method: paymentStatus === 'unpaid' ? 'unpaid' : paymentMethod,
+        bill_type: billType,
+        is_deleted: false,
+        staff_name: 'Admin'
+      }
 
-    const warnings: string[] = []
-    const deductionPromises = calculatedItems.map(async (item) => {
-      if (!item.name || item.qty <= 0) return;
-      const { data: pData } = await supabase.from('products').select('id, current_stock').eq('name', item.name).maybeSingle();
-      if (pData) {
-        if (pData.current_stock >= item.qty) {
-          await supabase.from('products').update({ current_stock: pData.current_stock - item.qty }).eq('id', pData.id)
-        } else {
-          warnings.push(`⚠️ ${item.name} ka stock kam hai`)
+      let ledgerData = null;
+      if (paymentStatus === 'unpaid' || paymentStatus === 'partial') {
+        const balanceDue = paymentStatus === 'partial' ? totals.total_amount - Number(amountPaid) : totals.total_amount;
+        
+        if (balanceDue > 0) {
+          ledgerData = {
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            type: 'receivable',
+            amount: balanceDue,
+            description: `Bill ${billNumber} Balance`,
+            date: billDate,
+            status: 'pending',
+            due_date: null,
+            bill_number: billNumber
+          }
         }
       }
-    })
-    await Promise.all(deductionPromises)
 
-    if (warnings.length > 0) {
-      setToast(warnings.join(' | '))
-    } else {
-      setToast("Bill saved successfully!")
+      let insertedData;
+      let saveError;
+
+      if (editId) {
+        const { data, error } = await supabase
+          .from('bills')
+          .update(billData)
+          .eq('id', editId)
+          .select('id')
+          .single()
+        insertedData = data;
+        saveError = error;
+      } else {
+        const { data, error } = await supabase
+          .from('bills')
+          .insert([billData])
+          .select('id')
+          .single()
+        insertedData = data;
+        saveError = error;
+      }
+
+      if (saveError) {
+        alert("Error saving bill: " + saveError.message)
+        return null
+      }
+
+      if (insertedData) {
+        setSavedBillId(insertedData.id)
+      }
+
+      if (ledgerData) {
+        const { error: ledgerError } = await supabase.from('ledger').insert([ledgerData])
+        if (ledgerError) console.error("Error saving ledger:", ledgerError)
+      }
+
+      const warnings: string[] = []
+      const deductionPromises = calculatedItems.map(async (item) => {
+        if (!item.name || item.qty <= 0) return;
+        if (editId) return; // Prevent double-deduction when editing an existing bill
+        
+        // Use atomic RPC stock deduction to prevent concurrency overrides
+        const { data, error } = await supabase.rpc('decrement_stock', {
+          p_name: item.name,
+          qty: item.qty
+        });
+        
+        if (error || !data) {
+           warnings.push(`⚠️ ${item.name} ka stock update fail hua ya kam hai`)
+        }
+      })
+      await Promise.all(deductionPromises)
+
+      if (warnings.length > 0) {
+        setToast(warnings.join(' | '))
+      } else {
+        setToast("Bill saved successfully!")
+      }
+      setTimeout(() => setToast(""), 5000)
+
+      if (!isPrintAction) {
+        await resetForm();
+      }
+
+      return insertedData?.id
+
+    } catch (e: any) {
+      alert("System Error: " + e.message)
+      return null
+    } finally {
+      isSubmitting.current = false;
+      setLoading(false)
     }
-    setTimeout(() => setToast(""), 5000)
-
-    setLoading(false)
-
-    if (!isPrintAction) {
-      await resetForm();
-    }
-
-    return insertedData?.id
   }
 
   const handlePrint = async () => {
@@ -481,7 +510,6 @@ function BillingContent() {
                   <tbody className="divide-y divide-border-default">
                     {calculatedItems.map((item, idx) => (
                       <tr key={item.id} className="hover:bg-surface-bg transition-colors">
-                        {/* Name Column */}
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col gap-2">
                             <ProductCombobox
@@ -511,8 +539,9 @@ function BillingContent() {
                                 />
                                 <input
                                   type="number"
-                                  value={item.colorantCost || ''}
-                                  onChange={(e) => updateItem(item.id, 'colorantCost', parseFloat(e.target.value) || 0)}
+                                  value={item.colorantCost === 0 ? '' : item.colorantCost}
+                                  onChange={(e) => updateItem(item.id, 'colorantCost', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                                  onWheel={(e) => (e.target as HTMLElement).blur()}
                                   className="h-8 w-24 px-2 text-xs rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   placeholder="Cost ₹"
                                 />
@@ -521,7 +550,6 @@ function BillingContent() {
                           </div>
                         </td>
 
-                        {/* Size & Base Column */}
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col gap-2">
                             <input
@@ -541,36 +569,34 @@ function BillingContent() {
                           </div>
                         </td>
 
-                        {/* Qty Column */}
                         <td className="px-4 py-3 align-middle">
                           <input
                             type="number"
                             min="1"
-                            value={item.qty || ''}
-                            onChange={(e) => updateItem(item.id, 'qty', parseInt(e.target.value) || 0)}
+                            value={item.qty === 0 ? '' : item.qty}
+                            onChange={(e) => updateItem(item.id, 'qty', e.target.value === '' ? 0 : parseInt(e.target.value))}
+                            onWheel={(e) => (e.target as HTMLElement).blur()}
                             className="h-9 w-full px-2 text-sm text-center rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </td>
 
-                        {/* Price Column */}
                         <td className="px-4 py-3 align-middle">
                           <input
                             type="number"
-                            value={item.rate || ''}
-                            onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)}
+                            value={item.rate === 0 ? '' : item.rate}
+                            onChange={(e) => updateItem(item.id, 'rate', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                            onWheel={(e) => (e.target as HTMLElement).blur()}
                             className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder="0.00"
                           />
                         </td>
 
-                        {/* Total Column */}
                         <td className="px-4 py-3 align-middle text-right">
                           <div className="h-9 flex items-center justify-end text-sm font-mono font-medium text-text-main">
                             {formatCurrency(item.itemSub)}
                           </div>
                         </td>
 
-                        {/* Remove Action Column */}
                         <td className="px-4 py-3 align-middle text-center">
                           {items.length > 1 && (
                             <button
@@ -585,7 +611,6 @@ function BillingContent() {
                     ))}
                   </tbody>
                 </table>
-                {/* Add Another Product Button */}
                 <div className="p-4 border-t border-border-default">
                   <button
                     onClick={handleAddItem}
@@ -617,6 +642,14 @@ function BillingContent() {
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                   <input
                     type="radio"
+                    checked={paymentStatus === 'partial'}
+                    onChange={() => setPaymentStatus('partial')}
+                    className="text-primary focus:ring-primary accent-primary"
+                  /> Partial
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+                  <input
+                    type="radio"
                     checked={paymentStatus === 'unpaid'}
                     onChange={() => setPaymentStatus('unpaid')}
                     className="text-primary focus:ring-primary accent-primary"
@@ -624,18 +657,33 @@ function BillingContent() {
                 </label>
               </div>
 
-              {paymentStatus === 'paid' && (
-                <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
-                  <label className="text-sm text-text-muted">Payment Mode</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e: any) => setPaymentMethod(e.target.value)}
-                    className="h-10 w-full px-3 rounded border border-border-default bg-white focus:border-primary outline-none"
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="upi">UPI</option>
-                    <option value="both">Both</option>
-                  </select>
+              {paymentStatus !== 'unpaid' && (
+                <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm text-text-muted">Payment Mode</label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e: any) => setPaymentMethod(e.target.value)}
+                      className="h-10 w-full px-3 rounded border border-border-default bg-white focus:border-primary outline-none"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI</option>
+                      <option value="both">Both</option>
+                    </select>
+                  </div>
+                  {paymentStatus === 'partial' && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-text-muted font-medium text-primary">Amount Paid Now (₹)</label>
+                      <input
+                        type="number"
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                        onWheel={(e) => (e.target as HTMLElement).blur()}
+                        className="h-10 w-full px-3 rounded border border-primary bg-white focus:ring-1 focus:ring-primary outline-none font-bold text-lg"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -661,8 +709,9 @@ function BillingContent() {
                 <span className="text-sm text-text-muted">Custom %:</span>
                 <input
                   type="number"
-                  value={discountPercent || ''}
-                  onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                  value={discountPercent === 0 ? '' : discountPercent}
+                  onChange={(e) => setDiscountPercent(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                   className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
@@ -691,6 +740,7 @@ function BillingContent() {
                   type="number"
                   value={globalGst}
                   onChange={(e) => setGlobalGst(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                  onWheel={(e) => (e.target as HTMLElement).blur()}
                   className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
@@ -751,7 +801,6 @@ function BillingContent() {
       </div>
 
       {/* --- HIDDEN PRINT TEMPLATE (ONLY VISIBLE ON PRINTER) --- */}
-      {/* Absolute container that breaks out of any parent hiding/layout to ensure full page print */}
       <div className="print-container">
         <style>{`
           .print-container {
@@ -785,6 +834,7 @@ function BillingContent() {
               width: 148mm;
               height: 209mm;
               overflow: hidden;
+              position: relative;
               page-break-after: always;
               padding: 10mm;
               background: white;
@@ -794,9 +844,9 @@ function BillingContent() {
             }
             .bill-page:last-child { page-break-after: avoid; }
             
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }
-            th { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 6px 4px; text-align: left; font-size: 11px; font-weight: bold; }
-            td { padding: 6px 4px; font-size: 11px; border: none; }
+            table { width: 100%; border-collapse: collapse; margin-top: 5px; margin-bottom: 5px; }
+            th { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 2px 4px; text-align: left; font-size: 10px; font-weight: bold; }
+            td { padding: 2px 4px; font-size: 10px; border: none; }
             
             .text-right { text-align: right; }
             .text-center { text-align: center; }
@@ -805,7 +855,7 @@ function BillingContent() {
             .totals-container {
               display: flex;
               justify-content: flex-end;
-              margin-top: 15px;
+              margin-top: 5px;
             }
             .totals-box {
               width: 60%;
@@ -813,17 +863,25 @@ function BillingContent() {
             .totals-row {
               display: flex;
               justify-content: space-between;
-              padding: 4px 0;
-              font-size: 11px;
+              padding: 2px 0;
+              font-size: 10px;
             }
             .grand-total-row {
               display: flex;
               justify-content: space-between;
-              padding: 8px 0;
-              font-size: 13px;
+              padding: 4px 0;
+              font-size: 12px;
               font-weight: bold;
               border-top: 1px solid #000;
-              margin-top: 4px;
+              margin-top: 2px;
+            }
+
+            .footer-block {
+              position: absolute;
+              bottom: 5mm;
+              left: 10mm;
+              right: 10mm;
+              font-size: 9px;
             }
           }
         `}</style>
@@ -832,148 +890,125 @@ function BillingContent() {
           <div key={idx} className="bill-page mx-auto">
 
             {/* HEADER (Centered) */}
-            <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-              <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '5px' }}>
+              <div style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                 {shopSettings.shop_name}
               </div>
-              <div style={{ fontSize: '11px', marginTop: '2px' }}>{shopSettings.tagline}</div>
-              <div style={{ fontSize: '11px' }}>{shopSettings.address}</div>
-              <div style={{ fontSize: '11px' }}>Ph: {shopSettings.phone}</div>
+              <div style={{ fontSize: '10px', marginTop: '2px' }}>{shopSettings.tagline}</div>
+              <div style={{ fontSize: '10px' }}>{shopSettings.address}</div>
+              <div style={{ fontSize: '10px' }}>Ph: {shopSettings.phone}</div>
             </div>
 
             {/* TAX INVOICE TITLE */}
-            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>TAX INVOICE</div>
-              <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '2px' }}>Bill: {billNumber}</div>
+            <div style={{ textAlign: 'center', marginBottom: '5px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 'bold' }}>TAX INVOICE</div>
+              <div style={{ fontSize: '10px', fontWeight: 'bold', marginTop: '1px' }}>Bill: {billNumber}</div>
             </div>
 
-            <div style={{ borderTop: '1px solid #000', marginBottom: '8px' }}></div>
+            <div style={{ borderTop: '1px solid #000', marginBottom: '5px' }}></div>
 
             {/* CUSTOMER & DATE INFO */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '5px' }}>
               <div>
-                <div>Bill To: {customerName}</div>
-                <div style={{ marginTop: '2px' }}>Phone: {customerPhone}</div>
+                <div>Bill To: <span className="font-bold">{customerName}</span></div>
+                <div style={{ marginTop: '1px' }}>Phone: {customerPhone}</div>
               </div>
-              <div>
-                Date: {new Date(billDate).toLocaleDateString('en-IN')}
+              <div style={{ textAlign: 'right' }}>
+                <div>Date: {format(new Date(billDate), "dd-MM-yyyy")}</div>
+                <div style={{ marginTop: '1px' }}>Type: {billType}</div>
               </div>
             </div>
 
-            {/* ITEMS TABLE (Clean horizontal lines only) */}
+            {/* ITEMS TABLE */}
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '8%' }}>S.No</th>
-                  <th style={{ width: '38%' }}>Item</th>
-                  <th style={{ width: '12%', textAlign: 'center' }}>Size</th>
-                  <th style={{ width: '10%', textAlign: 'center' }}>Qty</th>
-                  <th style={{ width: '16%', textAlign: 'center' }}>Price</th>
-                  <th style={{ width: '16%', textAlign: 'right' }}>Total</th>
+                  <th>Item Description</th>
+                  <th style={{ width: '40px', textAlign: 'center' }}>Qty</th>
+                  <th style={{ width: '60px', textAlign: 'right' }}>Rate</th>
+                  <th style={{ width: '60px', textAlign: 'right' }}>Amount</th>
                 </tr>
               </thead>
-              <tbody style={{ borderBottom: '1px solid #000' }}>
-                {pageItems.map((item: any, i: number) => (
-                  <Fragment key={item.id}>
-                    <tr>
-                      <td>{idx * ITEMS_PER_PAGE + i + 1}</td>
-                      <td>{item.name}</td>
-                      <td className="text-center">{item.size}</td>
-                      <td className="text-center">{item.qty}</td>
-                      <td className="text-center">{item.rate > 0 ? item.rate : ''}</td>
-                      <td className="text-right">{item.itemSub > 0 ? item.itemSub.toFixed(2) : ''}</td>
-                    </tr>
-                    {item.hasColorant && (
-                      <tr>
-                        <td></td>
-                        <td colSpan={5} style={{ paddingLeft: '8px', fontSize: '10px', color: '#333', paddingBottom: '8px' }}>
-                          <div>└ Color Code: {item.colorCode}</div>
-                          {item.base && <div>└ Base: {item.base}</div>}
-                          <div>└ Colorant: ₹{Number(item.colorantCost).toFixed(2)}</div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+              <tbody>
+                {pageItems.map((item, i) => (
+                  <tr key={i}>
+                    <td>
+                      <div className="font-bold">{item.name}</div>
+                      <div style={{ fontSize: '9px', marginTop: '1px', color: '#333' }}>
+                        {item.size} {item.base}
+                        {item.hasColorant && ` (+ Col: ${item.colorCode})`}
+                      </div>
+                    </td>
+                    <td className="text-center">{item.qty}</td>
+                    <td className="text-right">{item.rate.toFixed(2)}</td>
+                    <td className="text-right">{item.itemSub.toFixed(2)}</td>
+                  </tr>
                 ))}
-                {/* Empty spacer row to ensure the border-bottom looks clean */}
-                <tr><td colSpan={6} style={{ padding: '2px' }}></td></tr>
               </tbody>
             </table>
 
-            {/* TOTALS - last page only */}
-            {idx === pages.length - 1 ? (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px' }}>
-
-                {/* Left side empty space to push totals to right */}
-                <div style={{ width: '40%' }}></div>
-
-                {/* Right side totals box */}
-                <div style={{ width: '60%', paddingLeft: '20px' }}>
+            {/* TOTALS SECTIONS (Only on last page) */}
+            {idx === pages.length - 1 && (
+              <div className="totals-container">
+                <div className="totals-box">
                   <div className="totals-row">
-                    <span>Subtotal:</span>
-                    <span>₹{Number(totals.subtotal).toFixed(2)}</span>
+                    <span>Sub Total:</span>
+                    <span>{totals.subtotal.toFixed(2)}</span>
                   </div>
-
-                  {Number(totals.discount_amount) > 0 && (
+                  {totals.totalColorant > 0 && (
                     <div className="totals-row">
-                      <span>Discount (-):</span>
-                      <span>₹{Number(totals.discount_amount).toFixed(2)}</span>
+                      <span>Colorant:</span>
+                      <span>{totals.totalColorant.toFixed(2)}</span>
                     </div>
                   )}
-
-                  <div className="totals-row">
-                    <span>Taxable Value:</span>
-                    <span>₹{Number(totals.taxable_value).toFixed(2)}</span>
+                  {totals.discount_amount > 0 && (
+                    <div className="totals-row">
+                      <span>Discount:</span>
+                      <span>-{totals.discount_amount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="totals-row font-bold">
+                    <span>Taxable:</span>
+                    <span>{totals.taxable_value.toFixed(2)}</span>
                   </div>
-
-                  {Number(totals.cgst_amount) > 0 && (
+                  {globalGst !== "" && (
                     <>
                       <div className="totals-row">
-                        <span>CGST:</span>
-                        <span>₹{Number(totals.cgst_amount).toFixed(2)}</span>
+                        <span>CGST ({(Number(globalGst) / 2)}%):</span>
+                        <span>{totals.cgst_amount.toFixed(2)}</span>
                       </div>
                       <div className="totals-row">
-                        <span>SGST:</span>
-                        <span>₹{Number(totals.sgst_amount).toFixed(2)}</span>
+                        <span>SGST ({(Number(globalGst) / 2)}%):</span>
+                        <span>{totals.sgst_amount.toFixed(2)}</span>
                       </div>
                     </>
                   )}
-
                   <div className="grand-total-row">
-                    <span>GRAND TOTAL:</span>
-                    <span>₹{Number(totals.total_amount).toFixed(2)}</span>
+                    <span>Grand Total:</span>
+                    <span>₹ {totals.total_amount.toFixed(2)}</span>
                   </div>
-
-                  <div className="totals-row" style={{ marginTop: '10px', fontWeight: 'bold' }}>
-                    <span>Payment:</span>
-                    <span>{paymentStatus.toUpperCase()}</span>
+                  <div style={{ fontSize: '10px', marginTop: '5px', textAlign: 'right' }}>
+                    Payment Mode: {paymentStatus === 'unpaid' ? 'Unpaid' : paymentMethod.toUpperCase()}
                   </div>
                 </div>
               </div>
-            ) : (
-              <div style={{ textAlign: 'right', fontSize: '10px', fontStyle: 'italic', marginTop: '10px' }}>
-                Continued on next page...
-              </div>
             )}
 
-            {/* FOOTER - Always at the bottom */}
-            {idx === pages.length - 1 && (
-              <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '9px' }}>
-                <div style={{ borderTop: '1px dashed #000', marginBottom: '8px', width: '80%', margin: '0 auto 8px auto' }}></div>
-                <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>Terms & Conditions</div>
-                <div>Goods once sold cannot be returned.</div>
+            {/* FOOTER */}
+            <div className="footer-block">
+              <div style={{ borderTop: '1px dashed #000', paddingTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                <div>Terms & Conditions Apply. Thank you for your business!</div>
+                <div>Page {idx + 1} of {pages.length}</div>
               </div>
-            )}
-
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-5 z-50 print:hidden">
-          <CheckCircle2 className="h-5 w-5" />
-          <span className="font-medium">{toast}</span>
+        <div className="fixed bottom-4 right-4 bg-surface-container-highest text-text-main px-4 py-3 rounded shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-5">
+          <CheckCircle2 className="h-5 w-5 text-primary" />
+          <span className="font-medium text-sm">{toast}</span>
         </div>
       )}
     </>
@@ -982,7 +1017,7 @@ function BillingContent() {
 
 export default function BillingPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-text-muted">Loading billing...</div>}>
+    <Suspense fallback={<div className="p-12 text-center">Loading Billing System...</div>}>
       <BillingContent />
     </Suspense>
   )
