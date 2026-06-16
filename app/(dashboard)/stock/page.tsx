@@ -57,7 +57,7 @@ export default function StockPage() {
   }
 
   const handleStockUpdate = (id: string, newStock: string) => {
-    const numericStock = parseInt(newStock);
+    const numericStock = parseFloat(newStock);
     if (!isNaN(numericStock)) {
       setProducts(products.map(p => p.id === id ? { ...p, current_stock: numericStock } : p));
       setModifiedIds(prev => {
@@ -213,6 +213,7 @@ export default function StockPage() {
                     <td className="px-6 py-3 text-center">
                       <input 
                         type="number"
+                        step="any"
                         value={p.current_stock}
                         onChange={(e) => handleStockUpdate(p.id, e.target.value)}
                         className={`w-20 px-2 py-1.5 text-center border border-border-default rounded focus:border-primary outline-none font-mono text-sm font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${

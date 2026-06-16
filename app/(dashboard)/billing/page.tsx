@@ -14,6 +14,7 @@ interface BillItem {
   base: string;
   qty: number;
   rate: number;
+  discountPercent: number;
   hasColorant: boolean;
   colorCode: string;
   colorantCost: number;
@@ -44,11 +45,10 @@ function BillingContent() {
 
   // Products
   const [items, setItems] = useState<BillItem[]>([
-    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
+    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
   ])
 
   // Global Financial Modifiers
-  const [discountPercent, setDiscountPercent] = useState<number>(0)
   const [globalGst, setGlobalGst] = useState<number | "">("")
 
   // Payment (Added Partial Payment Support)
@@ -138,15 +138,12 @@ function BillingContent() {
             base: i.base || "",
             qty: i.qty || 1,
             rate: i.rate !== undefined ? i.rate : (i.price || 0),
+            discountPercent: i.discountPercent || 0,
             hasColorant: i.hasColorant || false,
             colorCode: i.colorCode || "",
             colorantCost: i.colorantCost || 0
           }))
-          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
-
-          if (data.subtotal && data.subtotal > 0 && data.discount_amount) {
-            setDiscountPercent((data.discount_amount / data.subtotal) * 100)
-          }
+          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
 
           if (data.taxable_value && data.taxable_value > 0 && data.cgst_amount) {
             const gst_total = (data.cgst_amount + data.sgst_amount)
@@ -169,23 +166,25 @@ function BillingContent() {
   const calculatedItems = useMemo(() => {
     return items.map(item => {
       const basePrice = Math.max(0, item.qty * item.rate)
+      const itemDiscount = basePrice * ((item.discountPercent || 0) / 100)
       const colorant = Math.max(0, item.hasColorant ? item.colorantCost : 0)
-      const itemSub = Math.max(0, basePrice + colorant)
-      return { ...item, basePrice, colorant, itemSub }
+      const itemSub = Math.max(0, basePrice - itemDiscount + colorant)
+      return { ...item, basePrice, itemDiscount, colorant, itemSub }
     })
   }, [items])
 
   const totals = useMemo(() => {
     let subtotal = 0;
     let totalColorant = 0;
+    let discount_amount = 0;
     calculatedItems.forEach(item => {
-      subtotal += item.itemSub
+      subtotal += item.basePrice + item.colorant
+      discount_amount += item.itemDiscount
       if (item.hasColorant) {
         totalColorant += item.colorantCost
       }
     })
 
-    const discount_amount = Math.max(0, subtotal * (discountPercent / 100))
     const taxable_value = Math.max(0, subtotal - discount_amount)
 
     const gstRate = globalGst === "" ? 0 : Number(globalGst)
@@ -205,10 +204,10 @@ function BillingContent() {
       sgst_amount: sgst,
       total_amount: total_amount
     }
-  }, [calculatedItems, discountPercent, globalGst])
+  }, [calculatedItems, globalGst])
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
   }
 
   const handleRemoveItem = (id: string) => {
@@ -237,8 +236,7 @@ function BillingContent() {
     setCustomerName("")
     setCustomerPhone("")
     setCustomerAddress("")
-    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
-    setDiscountPercent(0)
+    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
     setGlobalGst("")
     setPaymentStatus("paid")
     setAmountPaid("")
@@ -505,6 +503,7 @@ function BillingContent() {
                       <th className="px-4 py-3 font-semibold w-32">Size & Base</th>
                       <th className="px-4 py-3 font-semibold w-24">Qty</th>
                       <th className="px-4 py-3 font-semibold w-32 text-right">Price/Unit</th>
+                      <th className="px-4 py-3 font-semibold w-24 text-right">Disc(%)</th>
                       <th className="px-4 py-3 font-semibold text-right">Total</th>
                       <th className="px-4 py-3 w-12"></th>
                     </tr>
@@ -574,9 +573,10 @@ function BillingContent() {
                         <td className="px-4 py-3 align-middle">
                           <input
                             type="number"
-                            min="1"
+                            min="0"
+                            step="any"
                             value={item.qty === 0 ? '' : item.qty}
-                            onChange={(e) => updateItem(item.id, 'qty', e.target.value === '' ? 0 : parseInt(e.target.value))}
+                            onChange={(e) => updateItem(item.id, 'qty', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                             onWheel={(e) => (e.target as HTMLElement).blur()}
                             className="h-9 w-full px-2 text-sm text-center rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
@@ -585,11 +585,24 @@ function BillingContent() {
                         <td className="px-4 py-3 align-middle">
                           <input
                             type="number"
+                            step="any"
                             value={item.rate === 0 ? '' : item.rate}
                             onChange={(e) => updateItem(item.id, 'rate', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                             onWheel={(e) => (e.target as HTMLElement).blur()}
                             className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder="0.00"
+                          />
+                        </td>
+
+                        <td className="px-4 py-3 align-middle">
+                          <input
+                            type="number"
+                            step="any"
+                            value={item.discountPercent === 0 ? '' : item.discountPercent}
+                            onChange={(e) => updateItem(item.id, 'discountPercent', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                            onWheel={(e) => (e.target as HTMLElement).blur()}
+                            className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="0%"
                           />
                         </td>
 
@@ -688,35 +701,6 @@ function BillingContent() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Discount Card */}
-            <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
-              <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Discount</h3>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {[0, 15, 20, 30].map(pct => (
-                  <button
-                    key={pct}
-                    onClick={() => setDiscountPercent(pct)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${discountPercent === pct
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
-                      }`}
-                  >
-                    {pct}%
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-text-muted">Custom %:</span>
-                <input
-                  type="number"
-                  value={discountPercent === 0 ? '' : discountPercent}
-                  onChange={(e) => setDiscountPercent(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                  onWheel={(e) => (e.target as HTMLElement).blur()}
-                  className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
             </div>
 
             {/* GST Card */}
@@ -870,11 +854,12 @@ function BillingContent() {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '40%' }}>Product Name</th>
-                  <th style={{ width: '15%', textAlign: 'center' }}>Size</th>
-                  <th style={{ width: '15%', textAlign: 'center' }}>Qty</th>
+                  <th style={{ width: '32%' }}>Product Name</th>
+                  <th style={{ width: '12%', textAlign: 'center' }}>Size</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Qty</th>
                   <th style={{ width: '15%', textAlign: 'right' }}>Rate</th>
-                  <th style={{ width: '15%', textAlign: 'right' }}>Total</th>
+                  <th style={{ width: '11%', textAlign: 'right' }}>Disc(%)</th>
+                  <th style={{ width: '20%', textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -885,11 +870,12 @@ function BillingContent() {
                       <td style={{ textAlign: 'center' }}>{item.size}</td>
                       <td style={{ textAlign: 'center' }}>{item.qty}</td>
                       <td style={{ textAlign: 'right' }}>{item.rate.toFixed(2)}</td>
+                      <td style={{ textAlign: 'right' }}>{item.discountPercent > 0 ? `${item.discountPercent}%` : '-'}</td>
                       <td style={{ textAlign: 'right' }}>{item.itemSub.toFixed(2)}</td>
                     </tr>
                     {item.hasColorant && (
                       <tr>
-                        <td colSpan={5} style={{ paddingTop: '2px', paddingBottom: '10px', color: '#333', fontSize: '13px' }}>
+                        <td colSpan={6} style={{ paddingTop: '2px', paddingBottom: '10px', color: '#333', fontSize: '13px' }}>
                           └ Color Code: {item.colorCode} {item.base && `| Base: ${item.base}`} | Colorant: ₹{item.colorantCost.toFixed(2)}
                         </td>
                       </tr>
