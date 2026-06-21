@@ -476,6 +476,7 @@ function BillingContent() {
       // --- CUSTOMER AUTO-SAVE LOGIC ---
       try {
         if (customerPhone && !editId) { // Only do this for new bills, or we might double-count total_value
+          console.log("Starting customer auto-save logic for phone:", customerPhone);
           const { data: existingCustomer } = await supabase
             .from('customers')
             .select('id, total_orders, total_value')
@@ -483,7 +484,8 @@ function BillingContent() {
             .maybeSingle();
 
           if (existingCustomer) {
-            await supabase
+            console.log("Updating existing customer:", existingCustomer.id);
+            const { error: updateError } = await supabase
               .from('customers')
               .update({
                 name: customerName,
@@ -492,8 +494,16 @@ function BillingContent() {
                 last_visit: new Date().toISOString()
               })
               .eq('id', existingCustomer.id);
+            
+            if (updateError) {
+              console.error("Supabase Error updating customer:", updateError);
+              warnings.push(`⚠️ Customer record update failed: ${updateError.message}`);
+            } else {
+              console.log("Customer updated successfully");
+            }
           } else {
-            await supabase
+            console.log("Inserting new customer with name:", customerName);
+            const { error: insertError } = await supabase
               .from('customers')
               .insert([{
                 name: customerName,
@@ -504,10 +514,20 @@ function BillingContent() {
                 total_value: totals.total_amount,
                 last_visit: new Date().toISOString()
               }]);
+              
+            if (insertError) {
+              console.error("Supabase Error inserting customer:", insertError);
+              warnings.push(`⚠️ Customer record save failed: ${insertError.message}`);
+            } else {
+              console.log("Customer inserted successfully");
+            }
           }
+        } else {
+          console.log("Skipping customer auto-save. customerPhone:", customerPhone, "editId:", editId);
         }
-      } catch (custError) {
+      } catch (custError: any) {
         console.error("Error auto-saving customer:", custError);
+        warnings.push(`⚠️ Unexpected error saving customer: ${custError.message}`);
       }
       // --- END CUSTOMER AUTO-SAVE LOGIC ---
 
