@@ -39,6 +39,13 @@ function BillingContent() {
   const [customerPhone, setCustomerPhone] = useState("")
   const [customerAddress, setCustomerAddress] = useState("")
 
+  // Customer Autocomplete State
+  const [customerResults, setCustomerResults] = useState<any[]>([])
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const customerInputRef = useRef<HTMLInputElement>(null)
+  const customerDropdownRef = useRef<HTMLDivElement>(null)
+  const [customerDropdownStyle, setCustomerDropdownStyle] = useState<React.CSSProperties>({})
+
   // UI State
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState("")
@@ -89,6 +96,51 @@ function BillingContent() {
       setBillNumber('HP-S-001')
     }
   }
+
+  // Customer Dropdown Positioning
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target as Node) &&
+          customerInputRef.current && !customerInputRef.current.contains(event.target as Node)) {
+        setShowCustomerDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (showCustomerDropdown && customerInputRef.current) {
+      const rect = customerInputRef.current.getBoundingClientRect()
+      setCustomerDropdownStyle({
+        position: 'fixed',
+        zIndex: 9999,
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width
+      })
+    }
+  }, [showCustomerDropdown, customerName])
+
+  // Customer Search Fetch
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      if (!customerName || customerName.trim().length < 2) {
+        setCustomerResults([])
+        return
+      }
+      const { data } = await supabase
+        .from('customers')
+        .select('name, phone, customer_type, notes')
+        .or(`name.ilike.%${customerName}%,phone.ilike.%${customerName}%`)
+        .limit(10)
+      if (data) setCustomerResults(data)
+    }
+    const timer = setTimeout(() => {
+      if (showCustomerDropdown) fetchCustomers()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [customerName, showCustomerDropdown])
 
   useEffect(() => {
     const fetchShopSettings = async () => {
@@ -386,6 +438,44 @@ function BillingContent() {
       })
       await Promise.all(deductionPromises)
 
+      // --- CUSTOMER AUTO-SAVE LOGIC ---
+      try {
+        if (customerPhone && !editId) { // Only do this for new bills, or we might double-count total_value
+          const { data: existingCustomer } = await supabase
+            .from('customers')
+            .select('id, total_orders, total_value')
+            .eq('phone', customerPhone)
+            .maybeSingle();
+
+          if (existingCustomer) {
+            await supabase
+              .from('customers')
+              .update({
+                name: customerName,
+                total_orders: (existingCustomer.total_orders || 0) + 1,
+                total_value: Number((existingCustomer.total_value || 0)) + totals.total_amount,
+                last_visit: new Date().toISOString()
+              })
+              .eq('id', existingCustomer.id);
+          } else {
+            await supabase
+              .from('customers')
+              .insert([{
+                name: customerName,
+                phone: customerPhone,
+                notes: customerAddress || "",
+                customer_type: 'retail',
+                total_orders: 1,
+                total_value: totals.total_amount,
+                last_visit: new Date().toISOString()
+              }]);
+          }
+        }
+      } catch (custError) {
+        console.error("Error auto-saving customer:", custError);
+      }
+      // --- END CUSTOMER AUTO-SAVE LOGIC ---
+
       if (warnings.length > 0) {
         setToast(warnings.join(' | '))
       } else {
@@ -481,15 +571,45 @@ function BillingContent() {
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Customer Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 relative">
                   <label className="text-sm text-text-muted font-medium">Customer Name <span className="text-error">*</span></label>
                   <input
+                    ref={customerInputRef}
                     type="text"
                     value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value)
+                      setShowCustomerDropdown(true)
+                    }}
+                    onClick={() => setShowCustomerDropdown(true)}
                     className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     placeholder="Enter name"
                   />
+                  {showCustomerDropdown && customerResults.length > 0 && (
+                    <div 
+                      ref={customerDropdownRef} 
+                      className="product-dropdown" 
+                      style={customerDropdownStyle}
+                    >
+                      <ul className="py-1">
+                        {customerResults.map((c, i) => (
+                          <li
+                            key={i}
+                            onClick={() => {
+                              setCustomerName(c.name)
+                              setCustomerPhone(c.phone)
+                              if (c.notes) setCustomerAddress(c.notes)
+                              setShowCustomerDropdown(false)
+                            }}
+                            className="cursor-pointer px-3 py-2 hover:bg-surface-container border-b border-border-default last:border-0"
+                          >
+                            <div className="font-medium text-sm text-text-main">{c.name}</div>
+                            <div className="text-xs text-text-muted">{c.phone}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm text-text-muted font-medium">Phone Number <span className="text-error">*</span></label>
