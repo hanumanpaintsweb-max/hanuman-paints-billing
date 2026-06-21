@@ -189,12 +189,6 @@ export default function PrintPage({
                 <span>Subtotal:</span>
                 <span>₹{Number(bill.subtotal).toFixed(2)}</span>
               </div>
-              {bill.bill_type === 'DPL' && bill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0) > 0 && (
-                <div style={{display:'flex', justifyContent:'space-between', padding:'2px 0'}}>
-                  <span>Litre Disc Total:</span>
-                  <span>-₹{bill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0).toFixed(2)}</span>
-                </div>
-              )}
               {Number(bill.discount_amount) > 0 && (
                 <div style={{display:'flex', justifyContent:'space-between', padding:'2px 0'}}>
                   <span>Discount Total:</span>
@@ -216,6 +210,12 @@ export default function PrintPage({
                     <span>+₹{Number(bill.sgst_amount).toFixed(2)}</span>
                   </div>
                 </>
+              )}
+              {bill.bill_type === 'DPL' && bill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0) > 0 && (
+                <div style={{display:'flex', justifyContent:'space-between', padding:'2px 0'}}>
+                  <span>Litre Disc Total:</span>
+                  <span>-₹{bill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0).toFixed(2)}</span>
+                </div>
               )}
               <div className="grand-total">
                 <span>GRAND TOTAL:</span>

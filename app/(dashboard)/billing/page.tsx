@@ -230,15 +230,14 @@ function BillingContent() {
       const item_with_colorant = base + colorant;
       
       const disc_percent_amount = item_with_colorant * ((item.discountPercent || 0) / 100);
-      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * item.qty) : 0;
-      
-      const total_item_discount = disc_percent_amount + litre_disc_amount;
-      const taxable = Math.max(0, item_with_colorant - total_item_discount);
+      const taxable = Math.max(0, item_with_colorant - disc_percent_amount);
       
       const gstRate = globalGst === "" ? 0 : Number(globalGst);
       const gst = taxable * (gstRate / 100);
       
-      const item_total = Math.max(0, taxable + gst);
+      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * item.qty) : 0;
+      
+      const item_total = Math.max(0, taxable + gst - litre_disc_amount);
       
       return { 
         ...item, 
@@ -275,7 +274,7 @@ function BillingContent() {
 
     const cgst = Number((gst_total / 2).toFixed(2));
     const sgst = Number((gst_total / 2).toFixed(2));
-    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst));
+    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst - litre_discount_total));
 
     return {
       subtotal: Number(subtotal.toFixed(2)),
@@ -918,12 +917,6 @@ function BillingContent() {
                     <span className="font-mono text-primary">+{formatCurrency(totals.totalColorant)}</span>
                   </div>
                 )}
-                {billType === 'DPL' && totals.litre_discount_total > 0 && (
-                  <div className="flex justify-between items-center text-sm text-text-muted animate-in fade-in">
-                    <span>Litre Discount Total</span>
-                    <span className="font-mono text-error">-{formatCurrency(totals.litre_discount_total)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between items-center text-sm text-text-muted">
                   <span>Discount Total</span>
                   <span className="font-mono text-error">-{formatCurrency(totals.discount_amount)}</span>
@@ -936,6 +929,12 @@ function BillingContent() {
                   <span>GST Total</span>
                   <span className="font-mono">{formatCurrency(totals.cgst_amount + totals.sgst_amount)}</span>
                 </div>
+                {billType === 'DPL' && totals.litre_discount_total > 0 && (
+                  <div className="flex justify-between items-center text-sm text-text-muted animate-in fade-in pb-2">
+                    <span>Litre Discount Total</span>
+                    <span className="font-mono text-error">-{formatCurrency(totals.litre_discount_total)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-end pt-2">
                   <span className="text-base font-bold text-text-main">GRAND TOTAL</span>
                   <span className="text-3xl font-bold tracking-tight text-primary font-mono">{formatCurrency(totals.total_amount)}</span>
@@ -1074,12 +1073,6 @@ function BillingContent() {
                     <span>Subtotal:</span>
                     <span>₹{totals.subtotal.toFixed(2)}</span>
                   </div>
-                  {billType === 'DPL' && totals.litre_discount_total > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: 'red' }}>
-                      <span>Litre Discount Total:</span>
-                      <span>-₹{totals.litre_discount_total.toFixed(2)}</span>
-                    </div>
-                  )}
                   {totals.discount_amount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: 'red' }}>
                       <span>Discount Total:</span>
@@ -1105,6 +1098,12 @@ function BillingContent() {
                         <span>{totals.sgst_amount >= 0 ? '+' : '-'}₹{Math.abs(totals.sgst_amount).toFixed(2)}</span>
                       </div>
                     </>
+                  )}
+                  {billType === 'DPL' && totals.litre_discount_total > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: 'red' }}>
+                      <span>Litre Discount Total:</span>
+                      <span>-₹{totals.litre_discount_total.toFixed(2)}</span>
+                    </div>
                   )}
                   {totals.totalColorant > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
