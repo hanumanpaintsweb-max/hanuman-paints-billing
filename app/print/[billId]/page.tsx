@@ -164,14 +164,14 @@ export default function PrintPage({
                     <td>{item.name}</td>
                     <td className="text-center">{item.size}</td>
                     <td className="text-center">{item.qty}</td>
-                    <td className="text-right">₹{Number(item.price).toFixed(2)}</td>
-                    <td className="text-right">₹{Number(item.item_total).toFixed(2)}</td>
+                    <td className="text-right">₹{Number(item.rate || 0).toFixed(2)}</td>
+                    <td className="text-right">₹{Number(item.itemSub || 0).toFixed(2)}</td>
                   </tr>
                   {item.hasColorant && (
                     <tr>
                       <td></td>
                       <td colSpan={5} style={{ fontSize:'9px', color:'#555' }}>
-                        └ Color: {item.colorCode} {item.baseInput && ` | Base: ${item.baseInput}`} | Colorant: ₹{item.colorantCost}
+                        └ Color: {item.colorCode} {item.base && ` | Base: ${item.base}`} | Colorant: ₹{item.colorantCost}
                       </td>
                     </tr>
                   )}
