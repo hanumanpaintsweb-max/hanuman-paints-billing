@@ -164,28 +164,13 @@ function BillingContent() {
     loadEditBill()
   }, [editId])
 
-  // Helper for litre discount
-  const extractLitres = (size: string): number => {
-    const s = (size || '').toLowerCase().trim();
-    if (s.endsWith('ml')) {
-      const val = parseFloat(s);
-      return isNaN(val) ? 0 : val / 1000;
-    }
-    if (s.endsWith('l') || s.endsWith('ltr') || s.endsWith('litre') || s.endsWith('litres')) {
-      const val = parseFloat(s);
-      return isNaN(val) ? 0 : val;
-    }
-    return 0;
-  };
-
   // Calculations (Enforced explicit Float logic)
   const calculatedItems = useMemo(() => {
     return items.map(item => {
       const base = item.qty * item.rate;
       const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
       
-      const litres = extractLitres(item.size);
-      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * litres * item.qty) : 0;
+      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * item.qty) : 0;
       
       const item_sub = base + colorant - litre_disc_amount;
       const disc_amount = item_sub * ((item.discountPercent || 0) / 100);
@@ -958,27 +943,29 @@ function BillingContent() {
             {idx === pages.length - 1 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', fontSize: '14px' }}>
                 <div style={{ width: '300px' }}>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-text-muted">Subtotal:</span>
-                    <span className="font-mono font-medium">₹{totals.subtotal.toFixed(2)}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                    <span>Subtotal:</span>
+                    <span>₹{totals.subtotal.toFixed(2)}</span>
                   </div>
-                  {billType === 'DPL' && (
-                    <div className="flex justify-between items-center text-sm text-error">
+                  {billType === 'DPL' && totals.litre_discount_total > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: 'red' }}>
                       <span>Litre Discount Total:</span>
-                      <span className="font-mono">-₹{totals.litre_discount_total.toFixed(2)}</span>
+                      <span>-₹{totals.litre_discount_total.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center text-sm text-error">
-                    <span>Discount Total:</span>
-                    <span className="font-mono">-₹{totals.discount_amount.toFixed(2)}</span>
+                  {totals.discount_amount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: 'red' }}>
+                      <span>Discount Total:</span>
+                      <span>-₹{totals.discount_amount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                    <span>Taxable Value:</span>
+                    <span>₹{totals.taxable_value.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-text-muted">Taxable Value:</span>
-                    <span className="font-mono font-medium">₹{totals.taxable_value.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-text-muted">GST Total:</span>
-                    <span className="font-mono font-medium">₹{(totals.cgst_amount + totals.sgst_amount).toFixed(2)}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                    <span>GST Total:</span>
+                    <span>₹{(totals.cgst_amount + totals.sgst_amount).toFixed(2)}</span>
                   </div>
                   {globalGst !== "" && (
                     <>
