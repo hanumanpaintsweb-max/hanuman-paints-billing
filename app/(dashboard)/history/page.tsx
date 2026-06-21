@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, Fragment } from "react"
 import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
 import { Search, Eye, Edit, Trash2, ChevronLeft, ChevronRight, X } from "lucide-react"
@@ -284,22 +284,33 @@ function HistoryContent() {
                 </thead>
                 <tbody className="border-b border-black">
                   {previewBill.items?.map((item: any, idx: number) => (
-                    <tr key={item.id || idx}>
-                      <td className="py-2 align-top">{idx + 1}</td>
-                      <td className="py-2 align-top">
-                        <div className="font-medium">{item.name}</div>
-                        {item.hasColorant && (
-                          <div className="pl-2 text-[10px] text-gray-700 mt-1">
-                            └ Color Code: {item.colorCode} <br/>
-                            └ Colorant: ₹{item.colorantCost?.toFixed(2)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 align-top">{item.size}</td>
-                      <td className="py-2 align-top text-center">{item.qty}</td>
-                      <td className="py-2 align-top text-right">{Number(item.rate || 0).toFixed(2)}</td>
-                      <td className="py-2 align-top text-right font-mono">{Number(item.itemSub || 0).toFixed(2)}</td>
-                    </tr>
+                    <Fragment key={item.id || idx}>
+                      <tr>
+                        <td className="py-2 align-top">{idx + 1}</td>
+                        <td className="py-2 align-top">
+                          <div className="font-medium">{item.name}</div>
+                          {item.hasColorant && (
+                            <div className="pl-2 text-[10px] text-gray-700 mt-1">
+                              └ Color Code: {item.colorCode} <br/>
+                              └ Colorant: ₹{item.colorantCost?.toFixed(2)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 align-top">{item.size}</td>
+                        <td className="py-2 align-top text-center">{item.qty}</td>
+                        <td className="py-2 align-top text-right">{Number(item.rate || 0).toFixed(2)}</td>
+                        <td className="py-2 align-top text-right font-mono">{Number(item.item_total || item.itemSub || 0).toFixed(2)}</td>
+                      </tr>
+                      {(item.litre_disc_amount > 0 || item.itemDiscount > 0) && (
+                        <tr>
+                          <td></td>
+                          <td colSpan={5} className="pt-0 pb-2 pl-2 text-[10px] text-gray-700">
+                            {item.litre_disc_amount > 0 && `└ Litre Disc: -₹${item.litre_disc_amount.toFixed(2)} `}
+                            {item.itemDiscount > 0 && `└ Disc: -₹${item.itemDiscount.toFixed(2)}`}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -311,10 +322,16 @@ function HistoryContent() {
                     <span>Subtotal:</span>
                     <span className="font-mono">₹{previewBill.subtotal?.toFixed(2)}</span>
                   </div>
+                  {previewBill.bill_type === 'DPL' && previewBill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0) > 0 && (
+                    <div className="flex justify-between py-1 text-red-600">
+                      <span>Litre Disc Total:</span>
+                      <span className="font-mono">-₹{previewBill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0).toFixed(2)}</span>
+                    </div>
+                  )}
                   {previewBill.discount_amount > 0 && (
-                    <div className="flex justify-between py-1">
-                      <span>Discount (-):</span>
-                      <span className="font-mono">₹{previewBill.discount_amount?.toFixed(2)}</span>
+                    <div className="flex justify-between py-1 text-red-600">
+                      <span>Discount Total:</span>
+                      <span className="font-mono">-₹{previewBill.discount_amount?.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between py-1">

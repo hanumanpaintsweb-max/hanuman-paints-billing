@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function PrintPage({ 
@@ -158,24 +158,26 @@ export default function PrintPage({
             </thead>
             <tbody>
               {pageItems.map((item: any, i: number) => (
-                <div key={i} style={{ display: "contents" }}>
+                <Fragment key={i}>
                   <tr>
                     <td className="text-center">{idx * ITEMS_PER_PAGE + i + 1}</td>
                     <td>{item.name}</td>
                     <td className="text-center">{item.size}</td>
                     <td className="text-center">{item.qty}</td>
                     <td className="text-right">₹{Number(item.rate || 0).toFixed(2)}</td>
-                    <td className="text-right">₹{Number(item.itemSub || 0).toFixed(2)}</td>
+                    <td className="text-right">₹{Number(item.item_total || item.itemSub || 0).toFixed(2)}</td>
                   </tr>
-                  {item.hasColorant && (
+                  {(item.hasColorant || item.litre_disc_amount > 0 || item.itemDiscount > 0) && (
                     <tr>
                       <td></td>
-                      <td colSpan={5} style={{ fontSize:'9px', color:'#555' }}>
-                        └ Color: {item.colorCode} {item.base && ` | Base: ${item.base}`} | Colorant: ₹{item.colorantCost}
+                      <td colSpan={5} style={{ fontSize:'9px', color:'#555', paddingTop: 0 }}>
+                        {item.hasColorant && `└ Color: ${item.colorCode} ${item.base ? `| Base: ${item.base}` : ''} | Colorant: ₹${item.colorantCost} `}
+                        {item.litre_disc_amount > 0 && `└ Litre Disc: -₹${item.litre_disc_amount.toFixed(2)} `}
+                        {item.itemDiscount > 0 && `└ Disc: -₹${item.itemDiscount.toFixed(2)}`}
                       </td>
                     </tr>
                   )}
-                </div>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -187,9 +189,15 @@ export default function PrintPage({
                 <span>Subtotal:</span>
                 <span>₹{Number(bill.subtotal).toFixed(2)}</span>
               </div>
+              {bill.bill_type === 'DPL' && bill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0) > 0 && (
+                <div style={{display:'flex', justifyContent:'space-between', padding:'2px 0'}}>
+                  <span>Litre Disc Total:</span>
+                  <span>-₹{bill.items?.reduce((sum: number, i: any) => sum + (i.litre_disc_amount || 0), 0).toFixed(2)}</span>
+                </div>
+              )}
               {Number(bill.discount_amount) > 0 && (
                 <div style={{display:'flex', justifyContent:'space-between', padding:'2px 0'}}>
-                  <span>Discount:</span>
+                  <span>Discount Total:</span>
                   <span>-₹{Number(bill.discount_amount).toFixed(2)}</span>
                 </div>
               )}

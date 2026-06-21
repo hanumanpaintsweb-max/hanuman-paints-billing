@@ -164,50 +164,86 @@ function BillingContent() {
     loadEditBill()
   }, [editId])
 
+  // Helper for litre discount
+  const extractLitres = (size: string): number => {
+    const s = (size || '').toLowerCase().trim();
+    if (s.endsWith('ml')) {
+      const val = parseFloat(s);
+      return isNaN(val) ? 0 : val / 1000;
+    }
+    if (s.endsWith('l') || s.endsWith('ltr') || s.endsWith('litre') || s.endsWith('litres')) {
+      const val = parseFloat(s);
+      return isNaN(val) ? 0 : val;
+    }
+    return 0;
+  };
+
   // Calculations (Enforced explicit Float logic)
   const calculatedItems = useMemo(() => {
     return items.map(item => {
-      const basePrice = Math.max(0, item.qty * item.rate)
-      const priceAfterLitreDiscount = billType === 'DPL' ? Math.max(0, basePrice - (item.litreDiscount || 0)) : basePrice;
-      const itemDiscount = priceAfterLitreDiscount * ((item.discountPercent || 0) / 100)
-      const colorant = Math.max(0, item.hasColorant ? item.colorantCost : 0)
-      const itemSub = Math.max(0, priceAfterLitreDiscount - itemDiscount + colorant)
-      return { ...item, basePrice, itemDiscount, colorant, itemSub }
+      const base = item.qty * item.rate;
+      const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
+      
+      const litres = extractLitres(item.size);
+      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * litres * item.qty) : 0;
+      
+      const item_sub = base + colorant - litre_disc_amount;
+      const disc_amount = item_sub * ((item.discountPercent || 0) / 100);
+      
+      const taxable = item_sub - disc_amount;
+      const gstRate = globalGst === "" ? 0 : Number(globalGst);
+      const gst = taxable * (gstRate / 100);
+      
+      const item_total = Math.max(0, taxable + gst);
+      
+      return { 
+        ...item, 
+        basePrice: base, 
+        colorant, 
+        litre_disc_amount,
+        itemDiscount: disc_amount, 
+        item_sub,
+        taxable,
+        gst,
+        item_total
+      }
     })
-  }, [items, billType])
+  }, [items, billType, globalGst])
 
   const totals = useMemo(() => {
     let subtotal = 0;
     let totalColorant = 0;
     let discount_amount = 0;
+    let litre_discount_total = 0;
+    let taxable_value = 0;
+    let gst_total = 0;
+
     calculatedItems.forEach(item => {
-      subtotal += item.basePrice + item.colorant
-      discount_amount += item.itemDiscount
+      subtotal += item.basePrice + item.colorant;
+      litre_discount_total += item.litre_disc_amount || 0;
+      discount_amount += item.itemDiscount || 0;
+      taxable_value += item.taxable || 0;
+      gst_total += item.gst || 0;
       if (item.hasColorant) {
-        totalColorant += item.colorantCost
+        totalColorant += item.colorantCost;
       }
-    })
+    });
 
-    const taxable_value = Math.max(0, subtotal - discount_amount)
-
-    const gstRate = globalGst === "" ? 0 : Number(globalGst)
-    const gst_total = Math.max(0, taxable_value * (gstRate / 100))
-    
-    // Explicit toFixed(2) to prevent float drift
-    const cgst = Number((gst_total / 2).toFixed(2))
-    const sgst = Number((gst_total / 2).toFixed(2))
-    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst))
+    const cgst = Number((gst_total / 2).toFixed(2));
+    const sgst = Number((gst_total / 2).toFixed(2));
+    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst));
 
     return {
       subtotal: Number(subtotal.toFixed(2)),
       totalColorant: Number(totalColorant.toFixed(2)),
+      litre_discount_total: Number(litre_discount_total.toFixed(2)),
       discount_amount: Number(discount_amount.toFixed(2)),
       taxable_value: Number(taxable_value.toFixed(2)),
       cgst_amount: cgst,
       sgst_amount: sgst,
       total_amount: total_amount
     }
-  }, [calculatedItems, globalGst])
+  }, [calculatedItems])
 
   const handleAddItem = () => {
     setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
@@ -508,6 +544,7 @@ function BillingContent() {
                       <th className="px-4 py-3 font-semibold w-24">Qty</th>
                       <th className="px-4 py-3 font-semibold w-32 text-right">Price/Unit</th>
                       <th className="px-4 py-3 font-semibold w-24 text-right">Disc(%)</th>
+                      {billType === 'DPL' && <th className="px-4 py-3 font-semibold w-24 text-right">Litre Disc(₹)</th>}
                       <th className="px-4 py-3 font-semibold text-right">Total</th>
                       <th className="px-4 py-3 w-12"></th>
                     </tr>
@@ -599,33 +636,42 @@ function BillingContent() {
                         </td>
 
                         <td className="px-4 py-3 align-middle">
-                          <div className="flex flex-col gap-2">
+                          <input
+                            type="number"
+                            step="any"
+                            value={item.discountPercent === 0 ? '' : item.discountPercent}
+                            onChange={(e) => updateItem(item.id, 'discountPercent', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                            onWheel={(e) => (e.target as HTMLElement).blur()}
+                            className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="0%"
+                          />
+                        </td>
+                        {billType === 'DPL' && (
+                          <td className="px-4 py-3 align-middle">
                             <input
                               type="number"
                               step="any"
-                              value={item.discountPercent === 0 ? '' : item.discountPercent}
-                              onChange={(e) => updateItem(item.id, 'discountPercent', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                              value={item.litreDiscount === 0 ? '' : item.litreDiscount}
+                              onChange={(e) => updateItem(item.id, 'litreDiscount', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                               onWheel={(e) => (e.target as HTMLElement).blur()}
                               className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              placeholder="0%"
+                              placeholder="0"
                             />
-                            {billType === 'DPL' && (
-                              <input
-                                type="number"
-                                step="any"
-                                value={item.litreDiscount === 0 ? '' : item.litreDiscount}
-                                onChange={(e) => updateItem(item.id, 'litreDiscount', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                                onWheel={(e) => (e.target as HTMLElement).blur()}
-                                className="h-9 w-full px-2 text-xs text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                placeholder="Litre Disc ₹"
-                              />
-                            )}
-                          </div>
-                        </td>
+                          </td>
+                        )}
 
                         <td className="px-4 py-3 align-middle text-right">
-                          <div className="h-9 flex items-center justify-end text-sm font-mono font-medium text-text-main">
-                            {formatCurrency(item.itemSub)}
+                          <div className="flex flex-col items-end">
+                            <div className="h-9 flex items-center justify-end text-sm font-mono font-medium text-text-main">
+                              {formatCurrency(item.item_total)}
+                            </div>
+                            {(item.litre_disc_amount > 0 || item.itemDiscount > 0) && (
+                              <div className="text-[10px] text-text-muted mt-1 whitespace-nowrap">
+                                {item.litre_disc_amount > 0 && `Litre Disc: -₹${item.litre_disc_amount.toFixed(2)}`}
+                                {item.litre_disc_amount > 0 && item.itemDiscount > 0 && ' | '}
+                                {item.itemDiscount > 0 && `Disc: -₹${item.itemDiscount.toFixed(2)}`}
+                              </div>
+                            )}
                           </div>
                         </td>
 
@@ -762,8 +808,14 @@ function BillingContent() {
                     <span className="font-mono text-primary">+{formatCurrency(totals.totalColorant)}</span>
                   </div>
                 )}
+                {billType === 'DPL' && totals.litre_discount_total > 0 && (
+                  <div className="flex justify-between items-center text-sm text-text-muted animate-in fade-in">
+                    <span>Litre Discount Total</span>
+                    <span className="font-mono text-error">-{formatCurrency(totals.litre_discount_total)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center text-sm text-text-muted">
-                  <span>Discount</span>
+                  <span>Discount Total</span>
                   <span className="font-mono text-error">-{formatCurrency(totals.discount_amount)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm text-text-muted">
@@ -888,13 +940,13 @@ function BillingContent() {
                       <td style={{ textAlign: 'center' }}>{item.qty}</td>
                       <td style={{ textAlign: 'right' }}>{item.rate.toFixed(2)}</td>
                       <td style={{ textAlign: 'right' }}>{item.discountPercent > 0 ? `${item.discountPercent}%` : '-'}</td>
-                      <td style={{ textAlign: 'right' }}>{item.itemSub.toFixed(2)}</td>
+                      <td style={{ textAlign: 'right' }}>{item.item_total.toFixed(2)}</td>
                     </tr>
-                    {(item.hasColorant || (billType === 'DPL' && (item.litreDiscount || 0) > 0)) && (
+                    {(item.hasColorant || item.litre_disc_amount > 0) && (
                       <tr>
                         <td colSpan={6} style={{ paddingTop: '2px', paddingBottom: '10px', color: '#333', fontSize: '13px' }}>
                           {item.hasColorant && <div>└ Color Code: {item.colorCode} {item.base && `| Base: ${item.base}`} | Colorant: ₹{item.colorantCost.toFixed(2)}</div>}
-                          {billType === 'DPL' && (item.litreDiscount || 0) > 0 && <div>└ Litre Discount: -₹{item.litreDiscount}</div>}
+                          {item.litre_disc_amount > 0 && <div>└ Litre Discount: -₹{item.litre_disc_amount.toFixed(2)}</div>}
                         </td>
                       </tr>
                     )}
@@ -906,19 +958,27 @@ function BillingContent() {
             {idx === pages.length - 1 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', fontSize: '14px' }}>
                 <div style={{ width: '300px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                    <span>Subtotal:</span>
-                    <span>₹{totals.subtotal.toFixed(2)}</span>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Subtotal:</span>
+                    <span className="font-mono font-medium">₹{totals.subtotal.toFixed(2)}</span>
                   </div>
-                  {totals.discount_amount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                      <span>Discount:</span>
-                      <span>-₹{totals.discount_amount.toFixed(2)}</span>
+                  {billType === 'DPL' && (
+                    <div className="flex justify-between items-center text-sm text-error">
+                      <span>Litre Discount Total:</span>
+                      <span className="font-mono">-₹{totals.litre_discount_total.toFixed(2)}</span>
                     </div>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontWeight: 'bold' }}>
-                    <span>Taxable:</span>
-                    <span>₹{totals.taxable_value.toFixed(2)}</span>
+                  <div className="flex justify-between items-center text-sm text-error">
+                    <span>Discount Total:</span>
+                    <span className="font-mono">-₹{totals.discount_amount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Taxable Value:</span>
+                    <span className="font-mono font-medium">₹{totals.taxable_value.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">GST Total:</span>
+                    <span className="font-mono font-medium">₹{(totals.cgst_amount + totals.sgst_amount).toFixed(2)}</span>
                   </div>
                   {globalGst !== "" && (
                     <>
