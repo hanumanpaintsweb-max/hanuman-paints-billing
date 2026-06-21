@@ -276,7 +276,7 @@ export default function DashboardPage() {
           <h3 className="text-base font-bold text-text-main mb-6">Last 7 Days Sales</h3>
           <div className="h-[250px] flex items-end justify-between gap-2 pt-6">
             {last7DaysSales.map((day, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
+              <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full">
                 <div className="relative w-full flex justify-center h-full items-end">
                   {/* Tooltip */}
                   <div className="absolute -top-8 bg-text-main text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">

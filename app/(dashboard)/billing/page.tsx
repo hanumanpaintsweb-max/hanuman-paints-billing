@@ -756,7 +756,7 @@ function BillingContent() {
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Global GST</h3>
               <div className="flex flex-wrap gap-2 mb-3">
-                {[0, 12, 18].map(pct => (
+                {[0, 12, 18, -18].map(pct => (
                   <button
                     key={pct}
                     onClick={() => setGlobalGst(pct)}
@@ -765,7 +765,7 @@ function BillingContent() {
                         : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
                       }`}
                   >
-                    {pct}%
+                    {pct > 0 ? `+${pct}%` : `${pct}%`}
                   </button>
                 ))}
               </div>
@@ -974,11 +974,11 @@ function BillingContent() {
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
                         <span>CGST ({(Number(globalGst) / 2)}%):</span>
-                        <span>+₹{totals.cgst_amount.toFixed(2)}</span>
+                        <span>{totals.cgst_amount >= 0 ? '+' : '-'}₹{Math.abs(totals.cgst_amount).toFixed(2)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
                         <span>SGST ({(Number(globalGst) / 2)}%):</span>
-                        <span>+₹{totals.sgst_amount.toFixed(2)}</span>
+                        <span>{totals.sgst_amount >= 0 ? '+' : '-'}₹{Math.abs(totals.sgst_amount).toFixed(2)}</span>
                       </div>
                     </>
                   )}
