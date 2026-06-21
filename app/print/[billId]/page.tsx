@@ -171,9 +171,9 @@ export default function PrintPage({
                     <tr>
                       <td></td>
                       <td colSpan={5} style={{ fontSize:'9px', color:'#555', paddingTop: 0 }}>
-                        {item.hasColorant && `└ Color: ${item.colorCode} ${item.base ? `| Base: ${item.base}` : ''} | Colorant: ₹${item.colorantCost} `}
-                        {item.litre_disc_amount > 0 && `└ Litre Disc: -₹${item.litre_disc_amount.toFixed(2)} `}
-                        {item.itemDiscount > 0 && `└ Disc: -₹${item.itemDiscount.toFixed(2)}`}
+                        {item.hasColorant && <span>└ Color: {item.colorCode} {item.base ? `| Base: ${item.base}` : ''} | Colorant: ₹{item.colorantCost} </span>}
+                        {item.itemDiscount > 0 && <span>{item.hasColorant ? '| ' : '└ '}Disc: -₹{item.itemDiscount.toFixed(2)} </span>}
+                        {item.litre_disc_amount > 0 && <span>{(item.hasColorant || item.itemDiscount > 0) ? '| ' : '└ '}Litre Disc: -₹{item.litre_disc_amount.toFixed(2)}</span>}
                       </td>
                     </tr>
                   )}

@@ -305,8 +305,9 @@ function HistoryContent() {
                         <tr>
                           <td></td>
                           <td colSpan={5} className="pt-0 pb-2 pl-2 text-[10px] text-gray-700">
-                            {item.litre_disc_amount > 0 && `└ Litre Disc: -₹${item.litre_disc_amount.toFixed(2)} `}
-                            {item.itemDiscount > 0 && `└ Disc: -₹${item.itemDiscount.toFixed(2)}`}
+                            {item.itemDiscount > 0 && `└ Disc: -₹${item.itemDiscount.toFixed(2)} `}
+                            {item.itemDiscount > 0 && item.litre_disc_amount > 0 && '| '}
+                            {item.litre_disc_amount > 0 && `${item.itemDiscount === 0 ? '└ ' : ''}Litre Disc: -₹${item.litre_disc_amount.toFixed(2)}`}
                           </td>
                         </tr>
                       )}

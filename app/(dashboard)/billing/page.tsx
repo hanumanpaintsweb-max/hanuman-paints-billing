@@ -169,13 +169,14 @@ function BillingContent() {
     return items.map(item => {
       const base = item.qty * item.rate;
       const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
+      const item_with_colorant = base + colorant;
       
+      const disc_percent_amount = item_with_colorant * ((item.discountPercent || 0) / 100);
       const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * item.qty) : 0;
       
-      const item_sub = base + colorant - litre_disc_amount;
-      const disc_amount = item_sub * ((item.discountPercent || 0) / 100);
+      const total_item_discount = disc_percent_amount + litre_disc_amount;
+      const taxable = Math.max(0, item_with_colorant - total_item_discount);
       
-      const taxable = item_sub - disc_amount;
       const gstRate = globalGst === "" ? 0 : Number(globalGst);
       const gst = taxable * (gstRate / 100);
       
@@ -186,8 +187,8 @@ function BillingContent() {
         basePrice: base, 
         colorant, 
         litre_disc_amount,
-        itemDiscount: disc_amount, 
-        item_sub,
+        itemDiscount: disc_percent_amount, 
+        item_sub: item_with_colorant,
         taxable,
         gst,
         item_total
@@ -650,11 +651,11 @@ function BillingContent() {
                             <div className="h-9 flex items-center justify-end text-sm font-mono font-medium text-text-main">
                               {formatCurrency(item.item_total)}
                             </div>
-                            {(item.litre_disc_amount > 0 || item.itemDiscount > 0) && (
+                            {(item.itemDiscount > 0 || item.litre_disc_amount > 0) && (
                               <div className="text-[10px] text-text-muted mt-1 whitespace-nowrap">
-                                {item.litre_disc_amount > 0 && `Litre Disc: -₹${item.litre_disc_amount.toFixed(2)}`}
-                                {item.litre_disc_amount > 0 && item.itemDiscount > 0 && ' | '}
                                 {item.itemDiscount > 0 && `Disc: -₹${item.itemDiscount.toFixed(2)}`}
+                                {item.itemDiscount > 0 && item.litre_disc_amount > 0 && ' | '}
+                                {item.litre_disc_amount > 0 && `Litre Disc: -₹${item.litre_disc_amount.toFixed(2)}`}
                               </div>
                             )}
                           </div>
@@ -927,11 +928,13 @@ function BillingContent() {
                       <td style={{ textAlign: 'right' }}>{item.discountPercent > 0 ? `${item.discountPercent}%` : '-'}</td>
                       <td style={{ textAlign: 'right' }}>{item.item_total.toFixed(2)}</td>
                     </tr>
-                    {(item.hasColorant || item.litre_disc_amount > 0) && (
+                    {(item.hasColorant || item.itemDiscount > 0 || item.litre_disc_amount > 0) && (
                       <tr>
                         <td colSpan={6} style={{ paddingTop: '2px', paddingBottom: '10px', color: '#333', fontSize: '13px' }}>
                           {item.hasColorant && <div>└ Color Code: {item.colorCode} {item.base && `| Base: ${item.base}`} | Colorant: ₹{item.colorantCost.toFixed(2)}</div>}
-                          {item.litre_disc_amount > 0 && <div>└ Litre Discount: -₹{item.litre_disc_amount.toFixed(2)}</div>}
+                          {item.itemDiscount > 0 && <span>└ Disc: -₹{item.itemDiscount.toFixed(2)} </span>}
+                          {item.itemDiscount > 0 && item.litre_disc_amount > 0 && <span style={{ padding: '0 4px' }}>|</span>}
+                          {item.litre_disc_amount > 0 && <span>{item.itemDiscount === 0 ? '└ ' : ''}Litre Disc: -₹{item.litre_disc_amount.toFixed(2)}</span>}
                         </td>
                       </tr>
                     )}

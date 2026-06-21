@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart, PlusCircle } from "lucide-react"
+import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart, PlusCircle, LayoutDashboard } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 export default function Sidebar() {
@@ -10,6 +10,7 @@ export default function Sidebar() {
   const router = useRouter()
 
   const navItems = [
+    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
     { name: "Billing", path: "/billing", icon: Receipt },
     { name: "Bill History", path: "/history", icon: History },
     { name: "Unpaid Bills", path: "/unpaid", icon: ClockAlert },
