@@ -18,6 +18,7 @@ interface BillItem {
   hasColorant: boolean;
   colorCode: string;
   colorantCost: number;
+  litreDiscount?: number;
 }
 
 function BillingContent() {
@@ -45,7 +46,7 @@ function BillingContent() {
 
   // Products
   const [items, setItems] = useState<BillItem[]>([
-    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }
+    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }
   ])
 
   // Global Financial Modifiers
@@ -141,9 +142,10 @@ function BillingContent() {
             discountPercent: i.discountPercent || 0,
             hasColorant: i.hasColorant || false,
             colorCode: i.colorCode || "",
-            colorantCost: i.colorantCost || 0
+            colorantCost: i.colorantCost || 0,
+            litreDiscount: i.litreDiscount || 0
           }))
-          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
 
           if (data.taxable_value && data.taxable_value > 0 && data.cgst_amount) {
             const gst_total = (data.cgst_amount + data.sgst_amount)
@@ -166,12 +168,13 @@ function BillingContent() {
   const calculatedItems = useMemo(() => {
     return items.map(item => {
       const basePrice = Math.max(0, item.qty * item.rate)
-      const itemDiscount = basePrice * ((item.discountPercent || 0) / 100)
+      const priceAfterLitreDiscount = billType === 'DPL' ? Math.max(0, basePrice - (item.litreDiscount || 0)) : basePrice;
+      const itemDiscount = priceAfterLitreDiscount * ((item.discountPercent || 0) / 100)
       const colorant = Math.max(0, item.hasColorant ? item.colorantCost : 0)
-      const itemSub = Math.max(0, basePrice - itemDiscount + colorant)
+      const itemSub = Math.max(0, priceAfterLitreDiscount - itemDiscount + colorant)
       return { ...item, basePrice, itemDiscount, colorant, itemSub }
     })
-  }, [items])
+  }, [items, billType])
 
   const totals = useMemo(() => {
     let subtotal = 0;
@@ -207,7 +210,7 @@ function BillingContent() {
   }, [calculatedItems, globalGst])
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
   }
 
   const handleRemoveItem = (id: string) => {
@@ -236,7 +239,7 @@ function BillingContent() {
     setCustomerName("")
     setCustomerPhone("")
     setCustomerAddress("")
-    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0 }])
+    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
     setGlobalGst("")
     setPaymentStatus("paid")
     setAmountPaid("")
@@ -595,15 +598,28 @@ function BillingContent() {
                         </td>
 
                         <td className="px-4 py-3 align-middle">
-                          <input
-                            type="number"
-                            step="any"
-                            value={item.discountPercent === 0 ? '' : item.discountPercent}
-                            onChange={(e) => updateItem(item.id, 'discountPercent', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                            onWheel={(e) => (e.target as HTMLElement).blur()}
-                            className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="0%"
-                          />
+                          <div className="flex flex-col gap-2">
+                            <input
+                              type="number"
+                              step="any"
+                              value={item.discountPercent === 0 ? '' : item.discountPercent}
+                              onChange={(e) => updateItem(item.id, 'discountPercent', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                              onWheel={(e) => (e.target as HTMLElement).blur()}
+                              className="h-9 w-full px-2 text-sm text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              placeholder="0%"
+                            />
+                            {billType === 'DPL' && (
+                              <input
+                                type="number"
+                                step="any"
+                                value={item.litreDiscount === 0 ? '' : item.litreDiscount}
+                                onChange={(e) => updateItem(item.id, 'litreDiscount', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                                onWheel={(e) => (e.target as HTMLElement).blur()}
+                                className="h-9 w-full px-2 text-xs text-right rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="Litre Disc ₹"
+                              />
+                            )}
+                          </div>
                         </td>
 
                         <td className="px-4 py-3 align-middle text-right">
@@ -873,10 +889,11 @@ function BillingContent() {
                       <td style={{ textAlign: 'right' }}>{item.discountPercent > 0 ? `${item.discountPercent}%` : '-'}</td>
                       <td style={{ textAlign: 'right' }}>{item.itemSub.toFixed(2)}</td>
                     </tr>
-                    {item.hasColorant && (
+                    {(item.hasColorant || (billType === 'DPL' && (item.litreDiscount || 0) > 0)) && (
                       <tr>
                         <td colSpan={6} style={{ paddingTop: '2px', paddingBottom: '10px', color: '#333', fontSize: '13px' }}>
-                          └ Color Code: {item.colorCode} {item.base && `| Base: ${item.base}`} | Colorant: ₹{item.colorantCost.toFixed(2)}
+                          {item.hasColorant && <div>└ Color Code: {item.colorCode} {item.base && `| Base: ${item.base}`} | Colorant: ₹{item.colorantCost.toFixed(2)}</div>}
+                          {billType === 'DPL' && (item.litreDiscount || 0) > 0 && <div>└ Litre Discount: -₹{item.litreDiscount}</div>}
                         </td>
                       </tr>
                     )}

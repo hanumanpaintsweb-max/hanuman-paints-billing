@@ -16,13 +16,25 @@ export default function UnpaidBillsPage() {
 
   const fetchUnpaid = async () => {
     setLoading(true)
+    // Fetch directly from bills since ledger is empty/failing RLS
     const { data } = await supabase
-      .from("ledger")
+      .from("bills")
       .select("*")
-      .eq("status", "pending")
-      .order("due_date", { ascending: true })
+      .in("payment_status", ["unpaid", "partial"])
+      .order("created_at", { ascending: false })
 
-    if (data) setLedgers(data)
+    if (data) {
+      const mappedLedgers = data.map(bill => ({
+        id: bill.id,
+        customer_name: bill.customer_name,
+        customer_phone: bill.customer_phone,
+        bill_number: bill.bill_number,
+        amount: bill.total_amount, // Displaying total_amount since we don't have exact balance in bills table
+        due_date: bill.created_at, // Fallback to bill creation date
+        status: bill.payment_status,
+      }))
+      setLedgers(mappedLedgers)
+    }
     setLoading(false)
   }
 
