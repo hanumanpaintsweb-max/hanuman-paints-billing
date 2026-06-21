@@ -25,6 +25,25 @@
   --font-inter: var(--font-inter);
 }
 
+@layer base {
+  .dark {
+    --color-background: #0F172A; /* Slate 900 */
+    --color-text-main: #F8FAFC; /* Slate 50 */
+    --color-card-bg: #1E293B; /* Slate 800 */
+    --color-text-muted: #94A3B8; /* Slate 400 */
+    --color-sidebar-bg: #1E293B;
+    --color-sidebar-text: #F8FAFC;
+    --color-border-default: #334155; /* Slate 700 */
+    
+    --color-surface: #1E293B;
+    --color-surface-bg: #0F172A;
+    --color-surface-container: #334155;
+    --color-surface-container-low: #1E293B;
+    --color-surface-container-highest: #475569;
+    --color-surface-container-lowest: #020617; /* Slate 950 */
+  }
+}
+
 .bg-primary {
   color: #FFFFFF !important;
 }

@@ -2,12 +2,20 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart, PlusCircle, LayoutDashboard } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
+import { Receipt, History, ClockAlert, Users, CalendarDays, Settings, LogOut, Package, BarChart, PlusCircle, LayoutDashboard, Sun, Moon, UserCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -15,6 +23,7 @@ export default function Sidebar() {
     { name: "Bill History", path: "/history", icon: History },
     { name: "Unpaid Bills", path: "/unpaid", icon: ClockAlert },
     { name: "Customers", path: "/customers", icon: Users },
+    { name: "Staff", path: "/staff", icon: UserCircle },
     { name: "Day Book", path: "/daybook", icon: CalendarDays },
     { name: "Products", path: "/products", icon: Package },
     { name: "Stock", path: "/stock", icon: BarChart },
@@ -73,7 +82,19 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto px-6 pt-4 border-t border-border-default">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-text-muted">
+            Theme
+          </div>
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
+            title="Toggle Theme"
+          >
+            {mounted && theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
+        </div>
+        <div className="flex items-center justify-between pb-2">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-surface-container-highest flex items-center justify-center text-text-main font-bold">
               A

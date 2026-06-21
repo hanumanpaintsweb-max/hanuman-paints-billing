@@ -64,6 +64,10 @@ function BillingContent() {
   const [amountPaid, setAmountPaid] = useState<number | "">("")
   const [customerPaidNothing, setCustomerPaidNothing] = useState(false)
 
+  // Staff
+  const [staffList, setStaffList] = useState<any[]>([])
+  const [staffName, setStaffName] = useState<string>("Admin")
+
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
 
@@ -125,20 +129,20 @@ function BillingContent() {
   // Customer Search Fetch
   useEffect(() => {
     const fetchCustomers = async () => {
-      if (!customerName || customerName.trim().length < 2) {
-        setCustomerResults([])
-        return
+      let query = supabase.from('customers').select('name, phone, customer_type, notes').limit(50)
+      
+      if (customerName && customerName.trim().length > 0) {
+        query = query.or(`name.ilike.%${customerName}%,phone.ilike.%${customerName}%`)
+      } else {
+        query = query.order('total_orders', { ascending: false, nullsFirst: false })
       }
-      const { data } = await supabase
-        .from('customers')
-        .select('name, phone, customer_type, notes')
-        .or(`name.ilike.%${customerName}%,phone.ilike.%${customerName}%`)
-        .limit(10)
+      
+      const { data } = await query
       if (data) setCustomerResults(data)
     }
     const timer = setTimeout(() => {
       if (showCustomerDropdown) fetchCustomers()
-    }, 300)
+    }, 100)
     return () => clearTimeout(timer)
   }, [customerName, showCustomerDropdown])
 
@@ -175,6 +179,20 @@ function BillingContent() {
     }
     fetchProducts()
 
+    const fetchStaff = async () => {
+      const { data } = await supabase
+        .from("staff")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+      
+      if (data && data.length > 0) {
+        setStaffList(data)
+        if (!editId) setStaffName(data[0].name)
+      }
+    }
+    fetchStaff()
+
     const loadEditBill = async () => {
       if (editId) {
         const { data } = await supabase.from('bills').select('*').eq('id', editId).single()
@@ -183,6 +201,7 @@ function BillingContent() {
           setCustomerName(data.customer_name)
           setCustomerPhone(data.customer_phone)
           setCustomerAddress(data.customer_address || "")
+          if (data.staff_name) setStaffName(data.staff_name)
 
           const loadedItems = (data.items || []).map((i: any) => ({
             id: i.id || Date.now().toString(),
@@ -378,7 +397,7 @@ function BillingContent() {
         payment_method: computedPaymentStatus === 'unpaid' ? 'unpaid' : paymentMethod,
         bill_type: billType,
         is_deleted: false,
-        staff_name: 'Admin',
+        staff_name: staffName || 'Admin',
         paid_amount: computedPaidAmount
       }
 
@@ -575,6 +594,20 @@ function BillingContent() {
                 DPL Bill
               </button>
             </div>
+            <div className="flex rounded border border-border-default bg-card-bg p-1 h-10">
+              <select
+                value={staffName}
+                onChange={(e) => setStaffName(e.target.value)}
+                className="bg-transparent text-sm font-medium outline-none px-2 text-text-main cursor-pointer"
+              >
+                {staffList.map((staff) => (
+                  <option key={staff.id} value={staff.name}>
+                    {staff.name}
+                  </option>
+                ))}
+                {staffList.length === 0 && <option value="Admin">Admin</option>}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -598,6 +631,7 @@ function BillingContent() {
                       setShowCustomerDropdown(true)
                     }}
                     onClick={() => setShowCustomerDropdown(true)}
+                    onFocus={() => setShowCustomerDropdown(true)}
                     className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     placeholder="Enter name"
                   />
