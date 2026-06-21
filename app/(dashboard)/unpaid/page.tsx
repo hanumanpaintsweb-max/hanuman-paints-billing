@@ -29,7 +29,9 @@ export default function UnpaidBillsPage() {
         customer_name: bill.customer_name,
         customer_phone: bill.customer_phone,
         bill_number: bill.bill_number,
-        amount: bill.total_amount, // Displaying total_amount since we don't have exact balance in bills table
+        amount: bill.total_amount - (bill.paid_amount || 0), // Remaining balance calculation
+        total_amount: bill.total_amount,
+        paid_amount: bill.paid_amount || 0,
         due_date: bill.created_at, // Fallback to bill creation date
         status: bill.payment_status,
       }))
@@ -57,15 +59,21 @@ export default function UnpaidBillsPage() {
     if (amountPaid >= currentDue) {
       // Full payment
       if (selectedLedger.bill_number) {
-        await supabase.from("bills").update({ payment_status: 'paid' }).eq("bill_number", selectedLedger.bill_number)
+        await supabase.from("bills").update({ 
+          payment_status: 'paid',
+          paid_amount: selectedLedger.total_amount
+        }).eq("bill_number", selectedLedger.bill_number)
       }
       await supabase.from("ledger").update({ status: 'paid', amount: 0 }).eq("id", selectedLedger.id)
     } else {
       // Partial payment
       const remaining = currentDue - amountPaid
       if (selectedLedger.bill_number) {
-        // Safe update since amount_paid doesn't exist natively, we update status to 'partial'
-        await supabase.from("bills").update({ payment_status: 'partial' }).eq("bill_number", selectedLedger.bill_number)
+        const newPaidAmount = selectedLedger.paid_amount + amountPaid;
+        await supabase.from("bills").update({ 
+          payment_status: 'partial',
+          paid_amount: newPaidAmount 
+        }).eq("bill_number", selectedLedger.bill_number)
       }
       
       // Reduce outstanding balance on the ledger

@@ -245,7 +245,7 @@ function BillingContent() {
     setAmountPaid("")
     await fetchNextBillNumber()
     if (editId) {
-      router.push('/admin/history')
+      router.push('/history')
     } else {
       router.refresh()
     }
@@ -288,7 +288,8 @@ function BillingContent() {
         payment_method: paymentStatus === 'unpaid' ? 'unpaid' : paymentMethod,
         bill_type: billType,
         is_deleted: false,
-        staff_name: 'Admin'
+        staff_name: 'Admin',
+        paid_amount: paymentStatus === 'partial' ? Number(amountPaid) : (paymentStatus === 'paid' ? totals.total_amount : 0)
       }
 
       let ledgerData = null;
