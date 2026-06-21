@@ -43,6 +43,8 @@ export function ProductCombobox({ value, onChange, products }: ProductComboboxPr
     if (isOpen && inputRef.current) {
       const rect = inputRef.current.getBoundingClientRect()
       setDropdownStyle({
+        position: 'fixed',
+        zIndex: 9999,
         top: rect.bottom + 4,
         left: rect.left,
         width: rect.width
