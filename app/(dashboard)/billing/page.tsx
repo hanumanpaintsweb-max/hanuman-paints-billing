@@ -911,9 +911,9 @@ function BillingContent() {
                 <tr>
                   <th style={{ width: '32%' }}>Product Name</th>
                   <th style={{ width: '12%', textAlign: 'center' }}>Size</th>
-                  <th style={{ width: '10%', textAlign: 'center' }}>Qty</th>
-                  <th style={{ width: '15%', textAlign: 'right' }}>Rate</th>
-                  <th style={{ width: '11%', textAlign: 'right' }}>Disc(%)</th>
+                  <th style={{ width: '8%', textAlign: 'center' }}>Qty</th>
+                  <th style={{ width: '16%', textAlign: 'right', padding: '3px 6px' }}>Rate</th>
+                  <th style={{ width: '12%', textAlign: 'right', padding: '3px 6px' }}>Disc(%)</th>
                   <th style={{ width: '20%', textAlign: 'right' }}>Total</th>
                 </tr>
               </thead>

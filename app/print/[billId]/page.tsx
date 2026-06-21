@@ -152,7 +152,7 @@ export default function PrintPage({
                 <th style={{width:'36%', textAlign:'left'}}>Item</th>
                 <th style={{width:'12%'}}>Size</th>
                 <th style={{width:'8%'}}>Qty</th>
-                <th style={{width:'18%'}}>Rate</th>
+                <th style={{width:'18%', padding:'3px 6px'}}>Rate</th>
                 <th style={{width:'18%'}}>Total</th>
               </tr>
             </thead>
