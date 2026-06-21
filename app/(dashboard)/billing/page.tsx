@@ -134,7 +134,7 @@ function BillingContent() {
       if (customerName && customerName.trim().length > 0) {
         query = query.or(`name.ilike.%${customerName}%,phone.ilike.%${customerName}%`)
       } else {
-        query = query.order('total_orders', { ascending: false, nullsFirst: false })
+        query = query.order('name', { ascending: true })
       }
       
       const { data } = await query
@@ -594,20 +594,7 @@ function BillingContent() {
                 DPL Bill
               </button>
             </div>
-            <div className="flex rounded border border-border-default bg-card-bg p-1 h-10">
-              <select
-                value={staffName}
-                onChange={(e) => setStaffName(e.target.value)}
-                className="bg-transparent text-sm font-medium outline-none px-2 text-text-main cursor-pointer"
-              >
-                {staffList.map((staff) => (
-                  <option key={staff.id} value={staff.name}>
-                    {staff.name}
-                  </option>
-                ))}
-                {staffList.length === 0 && <option value="Admin">Admin</option>}
-              </select>
-            </div>
+
           </div>
         </div>
 
@@ -635,28 +622,34 @@ function BillingContent() {
                     className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     placeholder="Enter name"
                   />
-                  {showCustomerDropdown && customerResults.length > 0 && (
+                  {showCustomerDropdown && (
                     <div 
                       ref={customerDropdownRef} 
                       className="product-dropdown" 
                       style={customerDropdownStyle}
                     >
                       <ul className="py-1">
-                        {customerResults.map((c, i) => (
-                          <li
-                            key={i}
-                            onClick={() => {
-                              setCustomerName(c.name)
-                              setCustomerPhone(c.phone)
-                              if (c.notes) setCustomerAddress(c.notes)
-                              setShowCustomerDropdown(false)
-                            }}
-                            className="cursor-pointer px-3 py-2 hover:bg-surface-container border-b border-border-default last:border-0"
-                          >
-                            <div className="font-medium text-sm text-text-main">{c.name}</div>
-                            <div className="text-xs text-text-muted">{c.phone}</div>
+                        {customerResults.length > 0 ? (
+                          customerResults.map((c, i) => (
+                            <li
+                              key={i}
+                              onClick={() => {
+                                setCustomerName(c.name)
+                                setCustomerPhone(c.phone)
+                                if (c.notes) setCustomerAddress(c.notes)
+                                setShowCustomerDropdown(false)
+                              }}
+                              className="cursor-pointer px-3 py-2 hover:bg-surface-container border-b border-border-default last:border-0"
+                            >
+                              <div className="font-medium text-sm text-text-main">{c.name}</div>
+                              <div className="text-xs text-text-muted">{c.phone}</div>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="px-3 py-2 text-sm text-text-muted text-center">
+                            No customers found
                           </li>
-                        ))}
+                        )}
                       </ul>
                     </div>
                   )}
@@ -672,7 +665,7 @@ function BillingContent() {
                     placeholder="10 digit number"
                   />
                 </div>
-                <div className="flex flex-col gap-1.5 md:col-span-2">
+                <div className="flex flex-col gap-1.5 md:col-span-1">
                   <label className="text-sm text-text-muted font-medium">Address (Optional)</label>
                   <input
                     type="text"
@@ -680,6 +673,16 @@ function BillingContent() {
                     onChange={(e) => setCustomerAddress(e.target.value)}
                     className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     placeholder="Enter full address"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 md:col-span-1">
+                  <label className="text-sm text-text-muted font-medium">Staff Name</label>
+                  <input
+                    type="text"
+                    value={staffName}
+                    onChange={(e) => setStaffName(e.target.value)}
+                    className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    placeholder="Admin"
                   />
                 </div>
               </div>
