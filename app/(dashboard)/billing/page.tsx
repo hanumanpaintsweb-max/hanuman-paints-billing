@@ -59,10 +59,10 @@ function BillingContent() {
   // Global Financial Modifiers
   const [globalGst, setGlobalGst] = useState<number | "">("")
 
-  // Payment (Added Partial Payment Support)
-  const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid" | "partial">("paid")
+  // Payment
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "both">("cash")
   const [amountPaid, setAmountPaid] = useState<number | "">("")
+  const [customerPaidNothing, setCustomerPaidNothing] = useState(false)
 
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
@@ -205,7 +205,13 @@ function BillingContent() {
             setGlobalGst(computedGst > 0 ? computedGst : "")
           }
 
-          setPaymentStatus(data.payment_status)
+          if (data.payment_status === 'unpaid') {
+            setCustomerPaidNothing(true)
+            setAmountPaid("")
+          } else {
+            setCustomerPaidNothing(false)
+            setAmountPaid(data.paid_amount || "")
+          }
           setPaymentMethod(data.payment_method || 'cash')
           setBillType(data.bill_type)
         }
@@ -315,7 +321,7 @@ function BillingContent() {
     setCustomerAddress("")
     setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
     setGlobalGst("")
-    setPaymentStatus("paid")
+    setCustomerPaidNothing(false)
     setAmountPaid("")
     await fetchNextBillNumber()
     if (editId) {
@@ -336,9 +342,20 @@ function BillingContent() {
       alert("Please ensure all products have a name and quantity.")
       return null
     }
-    if (paymentStatus === 'partial' && (amountPaid === "" || amountPaid === 0)) {
-      alert("Please enter the partial amount paid by the customer.")
-      return null
+    let computedPaymentStatus = 'unpaid';
+    let computedPaidAmount = 0;
+    const grandTotal = totals.total_amount;
+    const paidInput = Number(amountPaid) || 0;
+
+    if (customerPaidNothing || paidInput === 0) {
+      computedPaymentStatus = 'unpaid';
+      computedPaidAmount = 0;
+    } else if (paidInput >= grandTotal) {
+      computedPaymentStatus = 'paid';
+      computedPaidAmount = grandTotal;
+    } else {
+      computedPaymentStatus = 'partial';
+      computedPaidAmount = paidInput;
     }
 
     isSubmitting.current = true;
@@ -358,17 +375,17 @@ function BillingContent() {
         cgst_amount: totals.cgst_amount,
         sgst_amount: totals.sgst_amount,
         total_amount: totals.total_amount,
-        payment_status: paymentStatus,
-        payment_method: paymentStatus === 'unpaid' ? 'unpaid' : paymentMethod,
+        payment_status: computedPaymentStatus,
+        payment_method: computedPaymentStatus === 'unpaid' ? 'unpaid' : paymentMethod,
         bill_type: billType,
         is_deleted: false,
         staff_name: 'Admin',
-        paid_amount: paymentStatus === 'partial' ? Number(amountPaid) : (paymentStatus === 'paid' ? totals.total_amount : 0)
+        paid_amount: computedPaidAmount
       }
 
       let ledgerData = null;
-      if (paymentStatus === 'unpaid' || paymentStatus === 'partial') {
-        const balanceDue = paymentStatus === 'partial' ? totals.total_amount - Number(amountPaid) : totals.total_amount;
+      if (computedPaymentStatus === 'unpaid' || computedPaymentStatus === 'partial') {
+        const balanceDue = grandTotal - computedPaidAmount;
         
         if (balanceDue > 0) {
           ledgerData = {
@@ -814,36 +831,36 @@ function BillingContent() {
             {/* Payment Card */}
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Payment Details</h3>
-              <div className="flex gap-4 mb-4">
+              <div className="flex flex-col gap-4 mb-4">
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                   <input
-                    type="radio"
-                    checked={paymentStatus === 'paid'}
-                    onChange={() => setPaymentStatus('paid')}
-                    className="text-primary focus:ring-primary accent-primary"
-                  /> Paid
+                    type="checkbox"
+                    checked={customerPaidNothing}
+                    onChange={(e) => {
+                      setCustomerPaidNothing(e.target.checked)
+                      if (e.target.checked) setAmountPaid(0)
+                    }}
+                    className="text-primary focus:ring-primary accent-primary w-4 h-4"
+                  /> 
+                  Customer paid nothing (mark fully unpaid)
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input
-                    type="radio"
-                    checked={paymentStatus === 'partial'}
-                    onChange={() => setPaymentStatus('partial')}
-                    className="text-primary focus:ring-primary accent-primary"
-                  /> Partial
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-                  <input
-                    type="radio"
-                    checked={paymentStatus === 'unpaid'}
-                    onChange={() => setPaymentStatus('unpaid')}
-                    className="text-primary focus:ring-primary accent-primary"
-                  /> Unpaid
-                </label>
-              </div>
 
-              {paymentStatus !== 'unpaid' && (
-                <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
-                  <div className="flex flex-col gap-1.5">
+                {!customerPaidNothing && (
+                  <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
+                    <label className="text-sm text-text-muted font-medium text-primary">Amount Paid by Customer (₹)</label>
+                    <input
+                      type="number"
+                      value={amountPaid}
+                      onChange={(e) => setAmountPaid(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                      onWheel={(e) => (e.target as HTMLElement).blur()}
+                      className="h-10 w-full px-3 rounded border border-primary bg-white focus:ring-1 focus:ring-primary outline-none font-bold text-lg"
+                      placeholder="0.00"
+                    />
+                  </div>
+                )}
+
+                {(!customerPaidNothing && amountPaid !== "" && amountPaid > 0) && (
+                  <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
                     <label className="text-sm text-text-muted">Payment Mode</label>
                     <select
                       value={paymentMethod}
@@ -855,21 +872,8 @@ function BillingContent() {
                       <option value="both">Both</option>
                     </select>
                   </div>
-                  {paymentStatus === 'partial' && (
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-sm text-text-muted font-medium text-primary">Amount Paid Now (₹)</label>
-                      <input
-                        type="number"
-                        value={amountPaid}
-                        onChange={(e) => setAmountPaid(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                        onWheel={(e) => (e.target as HTMLElement).blur()}
-                        className="h-10 w-full px-3 rounded border border-primary bg-white focus:ring-1 focus:ring-primary outline-none font-bold text-lg"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* GST Card */}
@@ -1114,7 +1118,21 @@ function BillingContent() {
                     <span>₹{totals.total_amount.toFixed(2)}</span>
                   </div>
                   <div style={{ textAlign: 'right', marginTop: '10px', fontWeight: 'bold' }}>
-                    Payment: {paymentStatus === 'unpaid' ? 'UNPAID' : 'PAID'}
+                    {(() => {
+                      const paidInput = Number(amountPaid) || 0;
+                      if (customerPaidNothing || paidInput === 0) {
+                        return "Payment: UNPAID";
+                      } else if (paidInput >= totals.total_amount) {
+                        return `Payment: PAID (via ${paymentMethod.toUpperCase()})`;
+                      } else {
+                        return (
+                          <>
+                            <div>Amount Paid: ₹{paidInput.toFixed(2)} (via {paymentMethod.toUpperCase()})</div>
+                            <div>Balance Due: ₹{(totals.total_amount - paidInput).toFixed(2)}</div>
+                          </>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
               </div>

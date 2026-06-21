@@ -221,8 +221,17 @@ export default function PrintPage({
                 <span>GRAND TOTAL:</span>
                 <span>₹{Number(bill.total_amount).toFixed(2)}</span>
               </div>
-              <div className="bold" style={{ padding:'2px 0' }}>
-                Payment: {bill.payment_status?.toUpperCase()}
+              <div className="bold" style={{ padding:'2px 0', textAlign: 'right' }}>
+                {bill.payment_status === 'partial' ? (
+                  <>
+                    <div>Amount Paid: ₹{Number(bill.paid_amount || 0).toFixed(2)} (via {bill.payment_method?.toUpperCase()})</div>
+                    <div>Balance Due: ₹{(Number(bill.total_amount) - Number(bill.paid_amount || 0)).toFixed(2)}</div>
+                  </>
+                ) : bill.payment_status === 'paid' ? (
+                  <div>Payment: PAID (via {bill.payment_method?.toUpperCase()})</div>
+                ) : (
+                  <div>Payment: UNPAID</div>
+                )}
               </div>
               {bill.bill_type === 'DPL' && (
                 <div style={{ fontSize:'8px', marginTop:'4px' }}>
