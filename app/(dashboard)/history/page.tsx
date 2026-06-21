@@ -297,8 +297,8 @@ function HistoryContent() {
                       </td>
                       <td className="py-2 align-top">{item.size}</td>
                       <td className="py-2 align-top text-center">{item.qty}</td>
-                      <td className="py-2 align-top text-right">{item.price?.toFixed(2)}</td>
-                      <td className="py-2 align-top text-right font-mono">{item.total?.toFixed(2)}</td>
+                      <td className="py-2 align-top text-right">{Number(item.rate || 0).toFixed(2)}</td>
+                      <td className="py-2 align-top text-right font-mono">{Number(item.itemSub || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
