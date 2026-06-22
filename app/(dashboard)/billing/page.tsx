@@ -4,7 +4,6 @@ import { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react"
 import { format } from "date-fns"
 import { Trash2, Plus, CheckCircle2, Save, Printer, MessageCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import html2pdf from 'html2pdf.js'
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
 import { useRouter, useSearchParams } from "next/navigation"
 
@@ -593,6 +592,9 @@ function BillingContent() {
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
       };
+
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default || html2pdfModule;
 
       await html2pdf().from(clonedElement).set(opt).save();
 
