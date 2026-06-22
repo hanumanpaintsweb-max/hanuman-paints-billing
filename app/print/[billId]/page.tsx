@@ -8,17 +8,31 @@ export default function PrintPage({
   params: { billId: string } 
 }) {
   const [bill, setBill] = useState<any>(null)
+  const [shopSettings, setShopSettings] = useState({
+    shop_name: "HANUMAN PAINTS",
+    tagline: "Authorized Dulux Blue Store",
+    address: "Ward No 16, Lohapatty, Madhubani",
+    phone: "8292889540"
+  })
 
   useEffect(() => {
     const fetchAndPrint = async () => {
-      const { data } = await supabase
-        .from('bills')
-        .select('*')
-        .eq('id', params.billId)
-        .single()
+      const [{ data: billData }, { data: settingsData }] = await Promise.all([
+        supabase.from('bills').select('*').eq('id', params.billId).single(),
+        supabase.from('shop_settings').select('*').limit(1).maybeSingle()
+      ])
       
-      if (data) {
-        setBill(data)
+      if (settingsData) {
+        setShopSettings({
+          shop_name: settingsData.shop_name?.toUpperCase() || "HANUMAN PAINTS",
+          tagline: settingsData.tagline || "Authorized Dulux Blue Store",
+          address: settingsData.address || "Ward No 16, Lohapatty, Madhubani",
+          phone: settingsData.phone || "8292889540"
+        })
+      }
+
+      if (billData) {
+        setBill(billData)
         setTimeout(() => {
           window.print()
         }, 500)
@@ -122,11 +136,11 @@ export default function PrintPage({
           {/* HEADER */}
           <div style={{ textAlign:'center', borderBottom:'2px solid #000', paddingBottom:'6px', marginBottom:'6px' }}>
             <div style={{ fontSize:'18px', fontWeight:'900', letterSpacing:'1px' }}>
-              HANUMAN PAINTS
+              {shopSettings.shop_name}
             </div>
-            <div>Authorized Dulux Blue Store</div>
-            <div>Ward No 16, Lohapatty, Madhubani</div>
-            <div>Ph: 8292889540</div>
+            <div>{shopSettings.tagline}</div>
+            <div>{shopSettings.address}</div>
+            <div>Ph: {shopSettings.phone}</div>
           </div>
 
           {/* BILL INFO */}
