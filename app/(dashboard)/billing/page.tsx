@@ -586,7 +586,7 @@ function BillingContent() {
       clonedElement.style.top = '-9999px';
       document.body.appendChild(clonedElement);
 
-      const opt = {
+      const opt: any = {
         margin: 0,
         filename: `Hanuman_Paints_Bill_${billNumber}.pdf`,
         image: { type: 'jpeg', quality: 1 },
