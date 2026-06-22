@@ -2,8 +2,9 @@
 
 import { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react"
 import { format } from "date-fns"
-import { Trash2, Plus, CheckCircle2, Save, Printer } from "lucide-react"
+import { Trash2, Plus, CheckCircle2, Save, Printer, MessageCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import html2pdf from 'html2pdf.js'
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
 import { useRouter, useSearchParams } from "next/navigation"
 
@@ -568,6 +569,52 @@ function BillingContent() {
     }
   }
 
+  const handleWhatsAppShare = async () => {
+    const successId = await handleSave(true);
+    if (!successId && !editId) return;
+
+    setLoading(true);
+    setToast("Generating PDF for WhatsApp...");
+
+    try {
+      const element = document.getElementById('bill-print');
+      if (!element) return;
+
+      const clonedElement = element.cloneNode(true) as HTMLElement;
+      clonedElement.style.display = 'block';
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.top = '-9999px';
+      document.body.appendChild(clonedElement);
+
+      const opt = {
+        margin: 0,
+        filename: `Hanuman_Paints_Bill_${billNumber}.pdf`,
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
+      };
+
+      await html2pdf().from(clonedElement).set(opt).save();
+
+      document.body.removeChild(clonedElement);
+
+      const text = encodeURIComponent(`Namaste ${customerName} Ji,\n\nHanuman Paints se aapka bill (Bill No: ${billNumber}) taiyaar hai. Total amount: ₹${totals.total_amount}.\n\nKripya attached PDF check karein. Dhanyawad!`);
+      const waUrl = `https://wa.me/91${customerPhone}?text=${text}`;
+      window.open(waUrl, '_blank');
+
+      setToast("PDF Downloaded. Attach it in WhatsApp!");
+      setTimeout(() => setToast(""), 5000);
+      
+      if (!editId) {
+        resetForm();
+      }
+    } catch (e: any) {
+      alert("Error generating PDF: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const formatCurrency = (num: number) => {
     return num.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
   }
@@ -1013,6 +1060,13 @@ function BillingContent() {
                   className="w-full h-12 bg-[#16a34a] text-white rounded font-bold flex items-center justify-center gap-2 hover:bg-[#15803d] transition-colors shadow-sm active:scale-[0.98] disabled:opacity-70"
                 >
                   <Printer className="h-5 w-5" /> {editId ? "Save Changes & Print" : "Save & Print Bill"}
+                </button>
+                <button
+                  onClick={handleWhatsAppShare}
+                  disabled={loading}
+                  className="w-full mt-2 bg-[#25D366] hover:bg-[#1DA851] text-white flex items-center justify-center gap-2 py-2 rounded font-medium transition-colors disabled:opacity-70"
+                >
+                  <MessageCircle size={20} /> Share on WhatsApp
                 </button>
               </div>
             </div>
