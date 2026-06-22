@@ -24,6 +24,14 @@ function HistoryContent() {
   // Preview Modal
   const [previewBill, setPreviewBill] = useState<any>(null)
 
+  // Print Settings
+  const [shopSettings, setShopSettings] = useState({
+    shop_name: "HANUMAN PAINTS",
+    tagline: "Authorized Dulux Blue Store",
+    address: "Ward No 16, Lohapatty, Madhubani, Bihar",
+    phone: "8292889540"
+  })
+
   const fetchBills = async () => {
     setLoading(true)
     // Fix: use neq true to include nulls if any, to avoid hiding bills
@@ -61,8 +69,21 @@ function HistoryContent() {
     setLoading(false)
   }
 
+  const fetchShopSettings = async () => {
+    const { data } = await supabase.from('shop_settings').select('*').limit(1).maybeSingle()
+    if (data) {
+      setShopSettings({
+        shop_name: data.shop_name?.toUpperCase() || "HANUMAN PAINTS",
+        tagline: data.tagline || "Authorized Dulux Blue Store",
+        address: data.address || "Ward No 16, Lohapatty, Madhubani, Bihar",
+        phone: data.phone || "8292889540"
+      })
+    }
+  }
+
   useEffect(() => {
     fetchBills()
+    fetchShopSettings()
   }, [search, statusFilter, dateFrom, dateTo, page])
 
   const handleDelete = async (id: string) => {
@@ -248,10 +269,10 @@ function HistoryContent() {
             <div className="p-8 overflow-y-auto print:p-2 text-black font-sans bg-white text-[11px] leading-snug">
               {/* Print Header */}
               <div className="text-center border-b border-black pb-2 mb-3">
-                <h1 className="text-[20px] font-bold uppercase tracking-wide m-0 p-0 leading-tight">HANUMAN PAINTS</h1>
-                <div className="text-[12px] m-0 p-0">Authorized Dulux Blue Store</div>
-                <div className="text-[12px] m-0 p-0">Ward No 16, Lohapatty, Madhubani, Bihar</div>
-                <div className="text-[12px] m-0 p-0">Ph: 8292889540</div>
+                <h1 className="text-[20px] font-bold uppercase tracking-wide m-0 p-0 leading-tight">{shopSettings.shop_name}</h1>
+                <div className="text-[12px] m-0 p-0">{shopSettings.tagline}</div>
+                <div className="text-[12px] m-0 p-0">{shopSettings.address}</div>
+                <div className="text-[12px] m-0 p-0">Ph: {shopSettings.phone}</div>
                 <div className="mt-2 font-bold text-[14px] uppercase">
                   {previewBill.bill_type === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}
                 </div>
