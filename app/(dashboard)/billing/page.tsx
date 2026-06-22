@@ -579,26 +579,34 @@ function BillingContent() {
       const element = document.getElementById('bill-print');
       if (!element) return;
 
-      const clonedElement = element.cloneNode(true) as HTMLElement;
-      clonedElement.style.display = 'block';
-      clonedElement.style.position = 'absolute';
-      clonedElement.style.top = '-9999px';
-      document.body.appendChild(clonedElement);
+      // 1. Temporarily show the element off-screen so html2pdf can render it
+      const originalClasses = element.className;
+      const originalCssText = element.style.cssText;
+      
+      // Make it visible, position absolute off-screen, with fixed A5 width to ensure correct scaling
+      element.className = 'absolute left-[-9999px] top-0 block w-[148mm] bg-white';
+      element.style.display = 'block'; // Override any inline display:none
+      element.style.visibility = 'visible';
+
+      // 2. Small delay to allow DOM to paint the element
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       const opt: any = {
         margin: 0,
         filename: `Hanuman_Paints_Bill_${billNumber}.pdf`,
         image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
       };
 
       const html2pdfModule = await import('html2pdf.js');
       const html2pdf = html2pdfModule.default || html2pdfModule;
 
-      await html2pdf().from(clonedElement).set(opt).save();
+      await html2pdf().set(opt).from(element).save();
 
-      document.body.removeChild(clonedElement);
+      // 4. Restore original hidden classes and styles
+      element.className = originalClasses;
+      element.style.cssText = originalCssText;
 
       const text = encodeURIComponent(`Namaste ${customerName} Ji,\n\nHanuman Paints se aapka bill (Bill No: ${billNumber}) taiyaar hai. Total amount: ₹${totals.total_amount}.\n\nKripya attached PDF check karein. Dhanyawad!`);
       const waUrl = `https://wa.me/91${customerPhone}?text=${text}`;
