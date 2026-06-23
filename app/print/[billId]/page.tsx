@@ -9,6 +9,7 @@ export default function PrintPage({
   params: { billId: string } 
 }) {
   const [bill, setBill] = useState<any>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [shopSettings, setShopSettings] = useState({
     shop_name: "HANUMAN PAINTS",
     tagline: "Authorized Dulux Blue Store",
@@ -18,10 +19,16 @@ export default function PrintPage({
 
   useEffect(() => {
     const fetchAndPrint = async () => {
-      const [{ data: billData }, { data: settingsData }] = await Promise.all([
+      const [{ data: billData, error: billError }, { data: settingsData }] = await Promise.all([
         supabase.from('bills').select('*').eq('id', params.billId).single(),
         supabase.from('shop_settings').select('*').limit(1).maybeSingle()
       ])
+      
+      if (billError) {
+        console.error('Print page error:', billError)
+        setErrorMsg(billError.message)
+        return
+      }
       
       if (settingsData) {
         setShopSettings({
@@ -37,10 +44,22 @@ export default function PrintPage({
         setTimeout(() => {
           window.print()
         }, 500)
+      } else {
+        setErrorMsg('Bill nahi mila')
       }
     }
     fetchAndPrint()
   }, [params.billId])
+
+  if (errorMsg) {
+    return (
+      <div style={{padding:'20px', textAlign:'center'}}>
+        <h2>Bill load nahi hua</h2>
+        <p>Error: {errorMsg}</p>
+        <p>Bill ID: {params.billId}</p>
+      </div>
+    )
+  }
 
   if (!bill) return (
     <div>Loading...</div>
