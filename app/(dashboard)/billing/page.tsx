@@ -571,57 +571,40 @@ function BillingContent() {
   const handleWhatsAppShare = async () => {
     const successId = await handleSave(true);
     if (!successId && !editId) return;
+    const currentBillId = successId || editId;
 
-    setLoading(true);
-    setToast("Generating PDF for WhatsApp...");
+    const paidInput = Number(amountPaid) || 0;
+    let paymentStatus = 'unpaid';
+    if (customerPaidNothing || paidInput === 0) {
+      paymentStatus = 'unpaid';
+    } else if (paidInput >= totals.total_amount) {
+      paymentStatus = 'paid';
+    } else {
+      paymentStatus = 'partial';
+    }
 
-    try {
-      const element = document.getElementById('bill-print');
-      if (!element) return;
+    const billText = `*Hanuman Paints*\n` +
+      `Bill No: ${billNumber}\n` +
+      `Customer: ${customerName}\n` +
+      `Amount: ₹${totals.total_amount.toFixed(2)}\n` +
+      `Status: ${paymentStatus.toUpperCase()}\n` +
+      `Date: ${format(new Date(billDate), "dd-MM-yyyy")}`;
 
-      // 1. Temporarily show the element off-screen so html2pdf can render it
-      const originalClasses = element.className;
-      const originalCssText = element.style.cssText;
-      
-      // Make it visible, position absolute off-screen, with fixed A5 width to ensure correct scaling
-      element.className = 'absolute left-[-9999px] top-0 block w-[148mm] bg-white';
-      element.style.display = 'block'; // Override any inline display:none
-      element.style.visibility = 'visible';
+    const billUrl = `${window.location.origin}/print/${currentBillId}`;
 
-      // 2. Small delay to allow DOM to paint the element
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const opt: any = {
-        margin: 0,
-        filename: `Hanuman_Paints_Bill_${billNumber}.pdf`,
-        image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
-      };
-
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-
-      await html2pdf().set(opt).from(element).save();
-
-      // 4. Restore original hidden classes and styles
-      element.className = originalClasses;
-      element.style.cssText = originalCssText;
-
-      const text = encodeURIComponent(`Namaste ${customerName} Ji,\n\nHanuman Paints se aapka bill (Bill No: ${billNumber}) taiyaar hai. Total amount: ₹${totals.total_amount}.\n\nKripya attached PDF check karein. Dhanyawad!`);
-      const waUrl = `https://wa.me/91${customerPhone}?text=${text}`;
-      window.open(waUrl, '_blank');
-
-      setToast("PDF Downloaded. Attach it in WhatsApp!");
-      setTimeout(() => setToast(""), 5000);
-      
-      if (!editId) {
-        resetForm();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Bill ${billNumber} - Hanuman Paints`,
+          text: billText,
+          url: billUrl
+        })
+      } catch (err) {
+        // User cancelled
       }
-    } catch (e: any) {
-      alert("Error generating PDF: " + e.message);
-    } finally {
-      setLoading(false);
+    } else {
+      const encodedText = encodeURIComponent(billText + `\n\nView Bill: ${billUrl}`);
+      window.open(`https://wa.me/91${customerPhone}?text=${encodedText}`, '_blank');
     }
   }
 

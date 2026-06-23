@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, Fragment } from "react"
 import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
-import { Search, Eye, Edit, Trash2, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Search, Eye, Edit, Trash2, ChevronLeft, ChevronRight, X, MessageCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 function HistoryContent() {
@@ -102,6 +102,32 @@ function HistoryContent() {
 
   const handlePrintPreview = () => {
     window.print()
+  }
+
+  const handleWhatsAppShare = async (bill: any) => {
+    const billText = `*Hanuman Paints*\n` +
+      `Bill No: ${bill.bill_number}\n` +
+      `Customer: ${bill.customer_name}\n` +
+      `Amount: ₹${(bill.total_amount || 0).toFixed(2)}\n` +
+      `Status: ${(bill.payment_status || 'unpaid').toUpperCase()}\n` +
+      `Date: ${format(new Date(bill.created_at), "dd-MM-yyyy")}`;
+
+    const billUrl = `${window.location.origin}/print/${bill.id}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Bill ${bill.bill_number} - Hanuman Paints`,
+          text: billText,
+          url: billUrl
+        })
+      } catch (err) {
+        // User cancelled
+      }
+    } else {
+      const encodedText = encodeURIComponent(billText + `\n\nView Bill: ${billUrl}`);
+      window.open(`https://wa.me/91${bill.customer_phone || ''}?text=${encodedText}`, '_blank');
+    }
   }
 
   return (
@@ -257,6 +283,9 @@ function HistoryContent() {
             <div className="p-4 border-b border-border-default flex justify-between items-center bg-surface rounded-t-lg print:hidden">
               <h2 className="text-lg font-bold">Preview Bill: {previewBill.bill_number}</h2>
               <div className="flex items-center gap-3">
+                <button onClick={() => handleWhatsAppShare(previewBill)} className="flex items-center gap-2 px-4 py-1.5 bg-[#25D366] text-white text-sm font-bold rounded shadow-sm hover:bg-[#1DA851] transition-colors">
+                  <MessageCircle className="h-4 w-4" /> Share
+                </button>
                 <button onClick={handlePrintPreview} className="px-4 py-1.5 bg-primary text-white text-sm font-bold rounded shadow-sm hover:bg-active-blue">
                   Print
                 </button>

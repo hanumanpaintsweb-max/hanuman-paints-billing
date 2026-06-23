@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useState, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
+import { MessageCircle } from 'lucide-react'
 
 export default function PrintPage({ 
   params 
@@ -71,6 +72,7 @@ export default function PrintPage({
         @media print {
           @page { size: 148mm 210mm; margin: 0; } /* Strict A5 Portrait */
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .mobile-share-btn { display: none !important; }
         }
         .bill-page { 
           width: 148mm;
@@ -129,7 +131,45 @@ export default function PrintPage({
             margin-right: auto;
           }
         }
+        .mobile-share-btn {
+          display: none;
+        }
+        @media screen and (max-width: 768px) {
+          .mobile-share-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: calc(100% - 40px);
+            margin: 0 auto 20px auto;
+            padding: 12px;
+            background: #25D366;
+            color: white;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          }
+        }
       `}</style>
+
+      <button 
+        className="mobile-share-btn"
+        onClick={() => {
+          if (navigator.share) {
+            navigator.share({
+              title: `Bill ${bill.bill_number}`,
+              url: window.location.href
+            }).catch(console.error)
+          } else {
+            alert('Share not supported on this browser.')
+          }
+        }}
+      >
+        <MessageCircle size={20} /> Share Bill
+      </button>
 
       {pages.map((pageItems, idx) => (
         <div key={idx} className="bill-page mx-auto">
