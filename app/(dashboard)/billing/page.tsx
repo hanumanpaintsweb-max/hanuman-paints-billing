@@ -450,6 +450,8 @@ function BillingContent() {
 
       if (insertedData) {
         setSavedBillId(insertedData.id)
+        console.log('Saved bill data:', insertedData)
+        console.log('Saved bill ID:', insertedData?.id)
       }
 
       if (ledgerData) {
