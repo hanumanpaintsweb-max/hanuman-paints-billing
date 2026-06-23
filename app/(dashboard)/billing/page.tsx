@@ -568,44 +568,17 @@ function BillingContent() {
     }
   }
 
-  const handleWhatsAppShare = async () => {
-    const successId = await handleSave(true);
-    if (!successId && !editId) return;
-    const currentBillId = successId || editId;
-
-    const paidInput = Number(amountPaid) || 0;
-    let paymentStatus = 'unpaid';
-    if (customerPaidNothing || paidInput === 0) {
-      paymentStatus = 'unpaid';
-    } else if (paidInput >= totals.total_amount) {
-      paymentStatus = 'paid';
-    } else {
-      paymentStatus = 'partial';
+  const handleWhatsAppShare = () => {
+    const idToShare = savedBillId || editId;
+    if (!idToShare) {
+      alert("Pehle bill save karo")
+      return
     }
-
-    const billText = `*Hanuman Paints*\n` +
-      `Bill No: ${billNumber}\n` +
-      `Customer: ${customerName}\n` +
-      `Amount: ₹${totals.total_amount.toFixed(2)}\n` +
-      `Status: ${paymentStatus.toUpperCase()}\n` +
-      `Date: ${format(new Date(billDate), "dd-MM-yyyy")}`;
-
-    const billUrl = `${window.location.origin}/print/${currentBillId}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Bill ${billNumber} - Hanuman Paints`,
-          text: billText,
-          url: billUrl
-        })
-      } catch (err) {
-        // User cancelled
-      }
-    } else {
-      const encodedText = encodeURIComponent(billText + `\n\nView Bill: ${billUrl}`);
-      window.open(`https://wa.me/91${customerPhone}?text=${encodedText}`, '_blank');
-    }
+    
+    // Open print page in new tab
+    // User can save as PDF from there
+    // and share on WhatsApp
+    window.open(`/print/${idToShare}`, '_blank')
   }
 
   const formatCurrency = (num: number) => {
@@ -1059,7 +1032,7 @@ function BillingContent() {
                   disabled={loading}
                   className="w-full mt-2 bg-[#25D366] hover:bg-[#1DA851] text-white flex items-center justify-center gap-2 py-2 rounded font-medium transition-colors disabled:opacity-70"
                 >
-                  <MessageCircle size={20} /> Share on WhatsApp
+                  <MessageCircle size={20} /> View & Share Bill
                 </button>
               </div>
             </div>

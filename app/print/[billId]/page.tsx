@@ -121,7 +121,7 @@ export default function PrintPage({
         }
         @media screen {
           body { 
-            padding: 20px; 
+            padding: 60px 20px 20px 20px; 
             background: #f0f0f0;
           }
           .bill-page { 
@@ -131,45 +131,21 @@ export default function PrintPage({
             margin-right: auto;
           }
         }
-        .mobile-share-btn {
-          display: none;
-        }
-        @media screen and (max-width: 768px) {
-          .mobile-share-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: calc(100% - 40px);
-            margin: 0 auto 20px auto;
-            padding: 12px;
-            background: #25D366;
-            color: white;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        @media print {
+          .print-actions { 
+            display: none !important; 
           }
         }
       `}</style>
 
-      <button 
-        className="mobile-share-btn"
-        onClick={() => {
-          if (navigator.share) {
-            navigator.share({
-              title: `Bill ${bill.bill_number}`,
-              url: window.location.href
-            }).catch(console.error)
-          } else {
-            alert('Share not supported on this browser.')
-          }
-        }}
-      >
-        <MessageCircle size={20} /> Share Bill
-      </button>
+      <div className="print-actions" style={{ position: 'fixed', top: 0, left: 0, right: 0, background: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'flex-end', gap: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 100 }}>
+        <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          Print Bill
+        </button>
+        <button onClick={() => window.close()} style={{ padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          Close
+        </button>
+      </div>
 
       {pages.map((pageItems, idx) => (
         <div key={idx} className="bill-page mx-auto">
