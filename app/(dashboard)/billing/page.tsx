@@ -334,6 +334,7 @@ function BillingContent() {
   }
 
   const resetForm = async () => {
+    setSavedBillId(null)
     setCustomerName("")
     setCustomerPhone("")
     setCustomerAddress("")
@@ -568,17 +569,15 @@ function BillingContent() {
     }
   }
 
-  const handleWhatsAppShare = () => {
-    const idToShare = savedBillId || editId;
-    if (!idToShare) {
+  const handleViewAndShare = () => {
+    if (!savedBillId) {
       alert("Pehle bill save karo")
       return
     }
-    
-    // Open print page in new tab
-    // User can save as PDF from there
-    // and share on WhatsApp
-    window.open(`/print/${idToShare}`, '_blank')
+    window.open(
+      `/print/${savedBillId}`,
+      '_blank'
+    )
   }
 
   const formatCurrency = (num: number) => {
@@ -1028,7 +1027,7 @@ function BillingContent() {
                   <Printer className="h-5 w-5" /> {editId ? "Save Changes & Print" : "Save & Print Bill"}
                 </button>
                 <button
-                  onClick={handleWhatsAppShare}
+                  onClick={handleViewAndShare}
                   disabled={loading}
                   className="w-full mt-2 bg-[#25D366] hover:bg-[#1DA851] text-white flex items-center justify-center gap-2 py-2 rounded font-medium transition-colors disabled:opacity-70"
                 >
