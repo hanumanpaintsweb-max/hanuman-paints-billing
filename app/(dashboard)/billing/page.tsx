@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useMemo, useEffect, useRef, Suspense } from "react"
 import { format } from "date-fns"
-import { Trash2, Plus, CheckCircle2, Save, Printer, MessageCircle } from "lucide-react"
+import { Trash2, Plus, CheckCircle2, Save, Printer } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { ProductCombobox, Product } from "@/components/ProductCombobox"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -245,18 +245,16 @@ function BillingContent() {
   const calculatedItems = useMemo(() => {
     return items.map(item => {
       const base = item.qty * item.rate;
+      const disc_percent_amount = base * ((item.discountPercent || 0) / 100);
+      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * item.qty) : 0;
       const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
-      const item_with_colorant = base + colorant;
       
-      const disc_percent_amount = item_with_colorant * ((item.discountPercent || 0) / 100);
-      const taxable = Math.max(0, item_with_colorant - disc_percent_amount);
+      const taxable = Math.max(0, base - disc_percent_amount - litre_disc_amount + colorant);
       
       const gstRate = globalGst === "" ? 0 : Number(globalGst);
       const gst = taxable * (gstRate / 100);
       
-      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * item.qty) : 0;
-      
-      const item_total = Math.max(0, taxable + gst - litre_disc_amount);
+      const item_total = Math.max(0, taxable + gst);
       
       return { 
         ...item, 
@@ -264,7 +262,7 @@ function BillingContent() {
         colorant, 
         litre_disc_amount,
         itemDiscount: disc_percent_amount, 
-        item_sub: item_with_colorant,
+        item_sub: base + colorant,
         taxable,
         gst,
         item_total
@@ -293,7 +291,7 @@ function BillingContent() {
 
     const cgst = Number((gst_total / 2).toFixed(2));
     const sgst = Number((gst_total / 2).toFixed(2));
-    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst - litre_discount_total));
+    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst));
 
     return {
       subtotal: Number(subtotal.toFixed(2)),
@@ -571,16 +569,6 @@ function BillingContent() {
     }
   }
 
-  const handleViewAndShare = () => {
-    if (!savedBillId) {
-      alert("Pehle bill save karo")
-      return
-    }
-    window.open(
-      `/print/${savedBillId}`,
-      '_blank'
-    )
-  }
 
   const formatCurrency = (num: number) => {
     return num.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
@@ -989,7 +977,10 @@ function BillingContent() {
                   </div>
                 )}
                 <div className="flex justify-between items-center text-sm text-text-muted">
-                  <span>Discount Total</span>
+                  <div className="flex flex-col">
+                    <span>Discount Total</span>
+                    <span className="text-[10px] text-text-muted/70 leading-none mt-0.5">Applies only to base price, not colorant</span>
+                  </div>
                   <span className="font-mono text-error">-{formatCurrency(totals.discount_amount)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm text-text-muted">
@@ -1028,13 +1019,7 @@ function BillingContent() {
                 >
                   <Printer className="h-5 w-5" /> {editId ? "Save Changes & Print" : "Save & Print Bill"}
                 </button>
-                <button
-                  onClick={handleViewAndShare}
-                  disabled={loading}
-                  className="w-full mt-2 bg-[#25D366] hover:bg-[#1DA851] text-white flex items-center justify-center gap-2 py-2 rounded font-medium transition-colors disabled:opacity-70"
-                >
-                  <MessageCircle size={20} /> View & Share Bill
-                </button>
+
               </div>
             </div>
 

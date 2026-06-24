@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, Fragment } from "react"
 import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
-import { Search, Eye, Edit, Trash2, ChevronLeft, ChevronRight, X, MessageCircle } from "lucide-react"
+import { Search, Eye, Edit, Trash2, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 function HistoryContent() {
@@ -104,9 +104,6 @@ function HistoryContent() {
     window.print()
   }
 
-  const handleWhatsAppShare = (bill: any) => {
-    window.open(`/print/${bill.id}`, '_blank');
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -261,9 +258,7 @@ function HistoryContent() {
             <div className="p-4 border-b border-border-default flex justify-between items-center bg-surface rounded-t-lg print:hidden">
               <h2 className="text-lg font-bold">Preview Bill: {previewBill.bill_number}</h2>
               <div className="flex items-center gap-3">
-                <button onClick={() => handleWhatsAppShare(previewBill)} className="flex items-center gap-2 px-4 py-1.5 bg-[#25D366] text-white text-sm font-bold rounded shadow-sm hover:bg-[#1DA851] transition-colors">
-                  <MessageCircle className="h-4 w-4" /> View & Share Bill
-                </button>
+
                 <button onClick={handlePrintPreview} className="px-4 py-1.5 bg-primary text-white text-sm font-bold rounded shadow-sm hover:bg-active-blue">
                   Print
                 </button>

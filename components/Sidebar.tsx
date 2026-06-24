@@ -28,8 +28,8 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-20 flex h-screen w-64 flex-col bg-card-bg border-r border-border-default py-4 no-print shadow-sm print:hidden">
-      <div className="mb-6 px-6">
+    <aside className="flex h-full w-full flex-col bg-card-bg border-r border-border-default py-4 no-print shadow-sm print:hidden">
+      <div className="mb-6 px-6 pt-12">
         <div className="flex items-center gap-3 mb-2">
           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primary/10 border border-primary/20">
             <span className="text-primary font-bold text-lg">HP</span>

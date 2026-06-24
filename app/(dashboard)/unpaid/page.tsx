@@ -8,6 +8,7 @@ import { CheckCircle, AlertCircle, Clock, X } from "lucide-react"
 export default function UnpaidBillsPage() {
   const [ledgers, setLedgers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
 
   // Payment Modal State
   const [payModalOpen, setPayModalOpen] = useState(false)
@@ -97,7 +98,16 @@ export default function UnpaidBillsPage() {
     fetchUnpaid()
   }
 
-  const totalOutstanding = ledgers.reduce((sum, item) => sum + Number(item.amount), 0)
+  const filteredLedgers = ledgers.filter(ledger => {
+    if (!search.trim()) return true;
+    const term = search.toLowerCase();
+    return (
+      (ledger.customer_name && ledger.customer_name.toLowerCase().includes(term)) ||
+      (ledger.customer_phone && ledger.customer_phone.includes(term))
+    );
+  })
+
+  const totalOutstanding = filteredLedgers.reduce((sum, item) => sum + Number(item.amount), 0)
   
   const getStatusColor = (dueDateStr: string) => {
     if (!dueDateStr) return "bg-gray-100 text-gray-700 border-gray-200"
@@ -131,8 +141,22 @@ export default function UnpaidBillsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-text-main">Unpaid Bills</h1>
+        <div className="relative w-full sm:max-w-sm">
+          <input 
+            type="text" 
+            placeholder="Search by customer name or phone..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-10 pl-3 pr-10 rounded border border-border-default focus:border-primary outline-none text-sm"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-2 top-2.5 text-text-muted hover:text-text-main">
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Top Summary Card */}
@@ -169,17 +193,23 @@ export default function UnpaidBillsPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-text-muted">Loading...</td>
                 </tr>
-              ) : ledgers.length === 0 ? (
+              ) : filteredLedgers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-text-muted">
                     <div className="flex flex-col items-center gap-2">
-                      <CheckCircle className="h-8 w-8 text-green-500" />
-                      <p>All bills are paid!</p>
+                      {search ? (
+                        <p>No results found for "{search}"</p>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-8 w-8 text-green-500" />
+                          <p>All bills are paid!</p>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
               ) : (
-                ledgers.map(ledger => (
+                filteredLedgers.map(ledger => (
                   <tr key={ledger.id} className="hover:bg-surface-bg transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-medium text-text-main">{ledger.customer_name}</div>
