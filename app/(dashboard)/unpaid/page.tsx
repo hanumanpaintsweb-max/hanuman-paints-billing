@@ -23,7 +23,7 @@ export default function UnpaidBillsPage() {
     // Fetch directly from bills since ledger is empty/failing RLS
     const { data } = await supabase
       .from("bills")
-      .select("*")
+      .select("id, customer_name, customer_phone, bill_number, total_amount, paid_amount, created_at, payment_status, payment_history")
       .in("payment_status", ["unpaid", "partial"])
       .order("created_at", { ascending: false })
 
@@ -38,6 +38,7 @@ export default function UnpaidBillsPage() {
         paid_amount: bill.paid_amount || 0,
         due_date: bill.created_at, // Fallback to bill creation date
         status: bill.payment_status,
+        payment_history: bill.payment_history || []
       }))
       setLedgers(mappedLedgers)
     }
@@ -111,10 +112,34 @@ export default function UnpaidBillsPage() {
       })
     }
     
+    // Update local state instead of full refetch
+    setLedgers(prevLedgers => prevLedgers.map(l => {
+      if (l.id === selectedLedger.id) {
+        const newPaidAmount = amountPaid >= currentDue ? l.total_amount : (l.paid_amount + amountPaid);
+        return {
+          ...l,
+          amount: l.total_amount - newPaidAmount,
+          paid_amount: newPaidAmount,
+          payment_history: updatedPaymentHistory,
+          status: amountPaid >= currentDue ? 'paid' : 'partial'
+        };
+      }
+      return l;
+    }).filter(l => l.status !== 'paid')); // Remove fully paid items from view
+
+    // Update Modal state if it's currently open
+    if (selectedHistory && selectedHistory.id === selectedLedger.id) {
+      setSelectedHistory((prev: any) => ({
+        ...prev,
+        payment_history: updatedPaymentHistory,
+        amount: prev.total_amount - (amountPaid >= currentDue ? prev.total_amount : (prev.paid_amount + amountPaid)),
+        paid_amount: amountPaid >= currentDue ? prev.total_amount : (prev.paid_amount + amountPaid)
+      }));
+    }
+
     setPayModalOpen(false)
     setSelectedLedger(null)
     setPayAmount("")
-    fetchUnpaid()
   }
 
   const filteredLedgers = ledgers.filter(ledger => {
