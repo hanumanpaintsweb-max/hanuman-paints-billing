@@ -60,9 +60,19 @@ export default function UnpaidBillsPage() {
     const amountPaid = Number(payAmount)
     const currentDue = Number(selectedLedger.amount)
     
-    const newPaymentEntry = { date: new Date().toISOString(), amount: amountPaid };
-    const currentPaymentHistory = selectedLedger.payment_history || [];
-    const updatedPaymentHistory = [...currentPaymentHistory, newPaymentEntry];
+    // Ensure existing history is always an array
+    const existingHistory = Array.isArray(selectedLedger.payment_history) 
+      ? selectedLedger.payment_history 
+      : [];
+
+    // Create new payment record
+    const newRecord = {
+      date: new Date().toISOString(),
+      amount: amountPaid
+    };
+
+    // Combine safely
+    const updatedPaymentHistory = [...existingHistory, newRecord];
 
     if (amountPaid >= currentDue) {
       // Full payment
