@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { format, differenceInDays } from "date-fns"
-import { CheckCircle, AlertCircle, Clock, X } from "lucide-react"
+import { CheckCircle, AlertCircle, Clock, X, History } from "lucide-react"
 
 export default function UnpaidBillsPage() {
   const [ledgers, setLedgers] = useState<any[]>([])
@@ -275,12 +275,20 @@ export default function UnpaidBillsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => openPayModal(ledger)}
-                        className="h-8 px-3 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors shadow-sm active:scale-[0.98] inline-flex items-center gap-1"
-                      >
-                        <CheckCircle className="h-3 w-3" /> Pay / Update
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => setSelectedHistory(ledger)}
+                          className="h-8 px-3 bg-surface border border-border-default text-text-main rounded text-xs font-bold hover:bg-surface-container transition-colors shadow-sm active:scale-[0.98] inline-flex items-center gap-1"
+                        >
+                          <History className="h-3 w-3" /> History
+                        </button>
+                        <button 
+                          onClick={() => openPayModal(ledger)}
+                          className="h-8 px-3 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 transition-colors shadow-sm active:scale-[0.98] inline-flex items-center gap-1"
+                        >
+                          <CheckCircle className="h-3 w-3" /> Pay / Update
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
