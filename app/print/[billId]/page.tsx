@@ -169,8 +169,8 @@ export default function PrintPage({
       {pages.map((pageItems, idx) => (
         <div key={idx} className="bill-page mx-auto">
           {/* HEADER */}
-          <div style={{ textAlign:'center', borderBottom:'2px solid #000', paddingBottom:'6px', marginBottom:'6px', position: 'relative', minHeight: '50px' }}>
-            <img src="/logo.png" alt="Logo" style={{ position: 'absolute', top: '0', left: '0', height: '45px', width: 'auto', objectFit: 'contain' }} />
+          <div style={{ textAlign:'center', borderBottom:'2px solid #000', paddingBottom:'6px', marginBottom:'6px', position: 'relative', minHeight: '80px' }}>
+            <img src="/logo.png" alt="Logo" style={{ position: 'absolute', top: '0', left: '0', height: '75px', width: 'auto', objectFit: 'contain' }} />
             <div style={{ fontSize:'18px', fontWeight:'900', letterSpacing:'1px' }}>
               {shopSettings.shop_name}
             </div>
