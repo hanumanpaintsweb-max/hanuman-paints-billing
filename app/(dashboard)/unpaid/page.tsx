@@ -10,6 +10,9 @@ export default function UnpaidBillsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
 
+  // History Modal State
+  const [selectedHistory, setSelectedHistory] = useState<any>(null)
+
   // Payment Modal State
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [selectedLedger, setSelectedLedger] = useState<any>(null)
@@ -57,12 +60,17 @@ export default function UnpaidBillsPage() {
     const amountPaid = Number(payAmount)
     const currentDue = Number(selectedLedger.amount)
     
+    const newPaymentEntry = { date: new Date().toISOString(), amount: amountPaid };
+    const currentPaymentHistory = selectedLedger.payment_history || [];
+    const updatedPaymentHistory = [...currentPaymentHistory, newPaymentEntry];
+
     if (amountPaid >= currentDue) {
       // Full payment
       if (selectedLedger.bill_number) {
         await supabase.from("bills").update({ 
           payment_status: 'paid',
-          paid_amount: selectedLedger.total_amount
+          paid_amount: selectedLedger.total_amount,
+          payment_history: updatedPaymentHistory
         }).eq("bill_number", selectedLedger.bill_number)
       }
       await supabase.from("ledger").update({ status: 'paid', amount: 0 }).eq("id", selectedLedger.id)
@@ -73,7 +81,8 @@ export default function UnpaidBillsPage() {
         const newPaidAmount = selectedLedger.paid_amount + amountPaid;
         await supabase.from("bills").update({ 
           payment_status: 'partial',
-          paid_amount: newPaidAmount 
+          paid_amount: newPaidAmount,
+          payment_history: updatedPaymentHistory
         }).eq("bill_number", selectedLedger.bill_number)
       }
       
@@ -216,7 +225,10 @@ export default function UnpaidBillsPage() {
                       <div className="text-xs text-text-muted">{ledger.customer_phone}</div>
                     </td>
                     <td className="px-6 py-4 font-medium">{ledger.bill_number || '-'}</td>
-                    <td className="px-6 py-4 text-right font-mono font-medium text-error">
+                    <td 
+                      className="px-6 py-4 text-right font-mono font-bold text-error cursor-pointer hover:underline"
+                      onClick={() => setSelectedHistory(ledger)}
+                    >
                       ₹{Number(ledger.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4">
@@ -288,6 +300,45 @@ export default function UnpaidBillsPage() {
               >
                 Confirm Payment
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {selectedHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white w-full max-w-md rounded-lg shadow-2xl flex flex-col">
+            <div className="p-4 border-b border-border-default flex justify-between items-center bg-surface rounded-t-lg">
+              <h2 className="text-lg font-bold">Payment History</h2>
+              <button onClick={() => setSelectedHistory(null)} className="text-text-muted hover:text-text-main">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <div>
+                <p className="text-sm text-text-muted">Customer</p>
+                <p className="font-bold text-text-main">{selectedHistory.customer_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-text-muted">Bill Number</p>
+                <p className="font-bold text-text-main">{selectedHistory.bill_number}</p>
+              </div>
+              <div className="mt-4">
+                <h3 className="font-bold text-text-main mb-2 border-b border-border-default pb-1">Payments Made</h3>
+                {!selectedHistory.payment_history || selectedHistory.payment_history.length === 0 ? (
+                  <p className="text-sm text-text-muted italic py-2">No partial payments yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {selectedHistory.payment_history.map((ph: any, idx: number) => (
+                      <div key={idx} className="flex justify-between items-center bg-surface-container-lowest p-2 rounded border border-border-default">
+                        <span className="text-sm font-medium">{format(new Date(ph.date), "dd MMM yyyy, hh:mm a")}</span>
+                        <span className="font-mono font-bold text-green-600">₹{Number(ph.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

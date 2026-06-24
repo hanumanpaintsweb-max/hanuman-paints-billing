@@ -58,6 +58,16 @@ function BillingContent() {
 
   // Global Financial Modifiers
   const [globalGst, setGlobalGst] = useState<number | "">("")
+  const [customGstType, setCustomGstType] = useState("-")
+  const [customGstValue, setCustomGstValue] = useState("")
+
+  const handleGlobalGst = (val: string) => {
+    if (!val || val === '0' || val === '+' || val === '-') {
+      setGlobalGst("")
+    } else {
+      setGlobalGst(parseFloat(val))
+    }
+  }
 
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "both">("cash")
@@ -338,6 +348,8 @@ function BillingContent() {
     setCustomerAddress("")
     setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
     setGlobalGst("")
+    setCustomGstValue("")
+    setCustomGstType("-")
     setCustomerPaidNothing(false)
     setAmountPaid("")
     await fetchNextBillNumber()
@@ -938,10 +950,13 @@ function BillingContent() {
             <div className="bg-card-bg border border-border-default rounded shadow-sm p-5">
               <h3 className="font-semibold text-text-main mb-4 border-b border-border-default pb-2">Global GST</h3>
               <div className="flex flex-wrap gap-2 mb-3">
-                {[0, 5, -5, 12, -12, 18, -18].map(pct => (
+                {[0, 5, -5, 18, -18].map(pct => (
                   <button
                     key={pct}
-                    onClick={() => setGlobalGst(pct)}
+                    onClick={() => {
+                      setGlobalGst(pct)
+                      setCustomGstValue("")
+                    }}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${globalGst === pct
                         ? 'bg-primary text-white border-primary'
                         : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
@@ -953,13 +968,38 @@ function BillingContent() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-text-muted">Custom %:</span>
-                <input
-                  type="number"
-                  value={globalGst}
-                  onChange={(e) => setGlobalGst(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                  onWheel={(e) => (e.target as HTMLElement).blur()}
-                  className="h-9 w-24 px-3 rounded border border-border-default focus:border-primary outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+                <div className="flex items-center border border-border-default rounded overflow-hidden h-9">
+                  <select
+                    value={customGstType}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      setCustomGstType(newType);
+                      if (customGstValue) {
+                        handleGlobalGst(newType + customGstValue);
+                      }
+                    }}
+                    className="h-full px-2 bg-surface-container-low border-r border-border-default text-sm text-text-main outline-none focus:bg-surface-container"
+                  >
+                    <option value="+">+</option>
+                    <option value="-">-</option>
+                  </select>
+                  <input
+                    type="number"
+                    value={customGstValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomGstValue(val);
+                      if (val === "") {
+                        handleGlobalGst("0");
+                      } else {
+                        handleGlobalGst(customGstType + val);
+                      }
+                    }}
+                    onWheel={(e) => (e.target as HTMLElement).blur()}
+                    className="h-full w-16 px-2 bg-white outline-none text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="0"
+                  />
+                </div>
               </div>
             </div>
 
