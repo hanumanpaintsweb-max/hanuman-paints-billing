@@ -49,11 +49,7 @@ export default function DashboardLayout({
       {/* Overlay */}
       <div 
         className={`fixed inset-0 bg-black/30 z-[999] print:hidden transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}
-        onClick={() => {
-          if (window.innerWidth < 1400) {
-            setIsSidebarOpen(false)
-          }
-        }}
+        onClick={() => setIsSidebarOpen(false)}
       />
 
       {/* Sidebar Container */}
