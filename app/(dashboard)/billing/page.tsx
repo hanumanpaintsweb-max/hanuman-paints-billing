@@ -1139,7 +1139,7 @@ function BillingContent() {
           <div key={idx} className="bill-page">
 
             <div style={{ textAlign: 'center', marginBottom: '15px', position: 'relative', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-              <img src="/logo.png" alt="Logo" className="print:block print:max-w-[150px]" style={{ position: 'absolute', top: '0', left: '0', height: '75px', width: 'auto', objectFit: 'contain', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
+              <img src="/logo.png" alt="Logo" className="print:block print:max-w-[100px]" style={{ position: 'absolute', top: '0', left: '0', height: '50px', width: 'auto', objectFit: 'contain', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
               <h2 style={{ margin: '0 0 5px 0', fontSize: '24px' }}>{shopSettings.shop_name}</h2>
               <div style={{ fontSize: '14px' }}>{shopSettings.tagline}</div>
               <div style={{ fontSize: '14px' }}>{shopSettings.address}</div>

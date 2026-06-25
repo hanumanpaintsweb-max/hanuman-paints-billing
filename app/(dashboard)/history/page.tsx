@@ -271,7 +271,7 @@ function HistoryContent() {
             <div className="p-8 overflow-y-auto print:p-2 text-black font-sans bg-white text-[11px] leading-snug">
               {/* Print Header */}
               <div className="text-center border-b border-black pb-2 mb-3 relative min-h-[80px]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                <img src="/logo.png" alt="Logo" className="absolute top-0 left-0 h-20 w-auto object-contain print:block print:max-w-[150px]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
+                <img src="/logo.png" alt="Logo" className="absolute top-0 left-0 h-12 w-auto object-contain print:block print:max-w-[100px]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
                 <h1 className="text-[20px] font-bold uppercase tracking-wide m-0 p-0 leading-tight">{shopSettings.shop_name}</h1>
                 <div className="text-[12px] m-0 p-0">{shopSettings.tagline}</div>
                 <div className="text-[12px] m-0 p-0">{shopSettings.address}</div>
