@@ -78,7 +78,7 @@ function BillingContent() {
 
   // Staff
   const [staffList, setStaffList] = useState<any[]>([])
-  const [staffName, setStaffName] = useState<string>("Admin")
+  const [staffName, setStaffName] = useState<string>("")
 
   // Products from DB
   const [dbProducts, setDbProducts] = useState<Product[]>([])
@@ -722,13 +722,16 @@ function BillingContent() {
                 </div>
                 <div className="flex flex-col gap-1.5 md:col-span-1">
                   <label className="text-sm text-text-muted font-medium">Staff Name</label>
-                  <input
-                    type="text"
+                  <select
                     value={staffName}
                     onChange={(e) => setStaffName(e.target.value)}
                     className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                    placeholder="Admin"
-                  />
+                  >
+                    <option value="" disabled>Select Staff Name</option>
+                    <option value="Owner">Owner</option>
+                    <option value="Staff 1">Staff 1</option>
+                    <option value="Staff 2">Staff 2</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -798,12 +801,12 @@ function BillingContent() {
 
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col gap-2">
-                            <div className="flex gap-1">
+                            <div className="flex gap-2">
                               <input
                                 type="number"
                                 value={item.size_value === 0 ? '' : item.size_value}
                                 onChange={(e) => updateItem(item.id, 'size_value', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                                className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="h-9 min-w-[5rem] w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 placeholder="Size"
                               />
                               <select
@@ -1135,7 +1138,8 @@ function BillingContent() {
         {pages.map((pageItems, idx) => (
           <div key={idx} className="bill-page">
 
-            <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '15px', position: 'relative', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+              <img src="/logo.png" alt="Logo" className="print:block print:max-w-[150px]" style={{ position: 'absolute', top: '0', left: '0', height: '75px', width: 'auto', objectFit: 'contain', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
               <h2 style={{ margin: '0 0 5px 0', fontSize: '24px' }}>{shopSettings.shop_name}</h2>
               <div style={{ fontSize: '14px' }}>{shopSettings.tagline}</div>
               <div style={{ fontSize: '14px' }}>{shopSettings.address}</div>
