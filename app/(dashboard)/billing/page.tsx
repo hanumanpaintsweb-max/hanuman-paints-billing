@@ -11,6 +11,8 @@ interface BillItem {
   id: string;
   name: string;
   size: string;
+  size_value?: number;
+  size_unit?: string;
   base: string;
   qty: number;
   rate: number;
@@ -53,7 +55,7 @@ function BillingContent() {
 
   // Products
   const [items, setItems] = useState<BillItem[]>([
-    { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }
+    { id: Date.now().toString(), name: "", size: "", size_value: 0, size_unit: "L", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }
   ])
 
   // Global Financial Modifiers
@@ -217,6 +219,8 @@ function BillingContent() {
             id: i.id || Date.now().toString(),
             name: i.name || "",
             size: i.size || "",
+            size_value: i.size_value || 0,
+            size_unit: i.size_unit || "L",
             base: i.base || "",
             qty: i.qty || 1,
             rate: i.rate !== undefined ? i.rate : (i.price || 0),
@@ -226,7 +230,7 @@ function BillingContent() {
             colorantCost: i.colorantCost || 0,
             litreDiscount: i.litreDiscount || 0
           }))
-          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
+          setItems(loadedItems.length > 0 ? loadedItems : [{ id: Date.now().toString(), name: "", size: "", size_value: 0, size_unit: "L", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
 
           if (data.taxable_value && data.taxable_value > 0 && data.cgst_amount) {
             const gst_total = (data.cgst_amount + data.sgst_amount)
@@ -256,7 +260,14 @@ function BillingContent() {
     return items.map(item => {
       const base = item.qty * item.rate;
       const disc_percent_amount = base * ((item.discountPercent || 0) / 100);
-      const litre_disc_amount = billType === 'DPL' ? ((item.litreDiscount || 0) * item.qty) : 0;
+      
+      let normalizedSize = item.size_value || 0;
+      if (item.size_unit === 'ml' || item.size_unit === 'gm') {
+          normalizedSize = normalizedSize / 1000;
+      }
+      const litreDiscountRate = item.litreDiscount || 0;
+      const litre_disc_amount = billType === 'DPL' ? (normalizedSize * litreDiscountRate * item.qty) : 0;
+      
       const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
       
       const taxable = Math.max(0, base - disc_percent_amount - litre_disc_amount + colorant);
@@ -316,7 +327,7 @@ function BillingContent() {
   }, [calculatedItems])
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
+    setItems([...items, { id: Date.now().toString(), name: "", size: "", size_value: 0, size_unit: "L", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
   }
 
   const handleRemoveItem = (id: string) => {
@@ -346,7 +357,7 @@ function BillingContent() {
     setCustomerName("")
     setCustomerPhone("")
     setCustomerAddress("")
-    setItems([{ id: Date.now().toString(), name: "", size: "", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
+    setItems([{ id: Date.now().toString(), name: "", size: "", size_value: 0, size_unit: "L", base: "", qty: 1, rate: 0, discountPercent: 0, hasColorant: false, colorCode: "", colorantCost: 0, litreDiscount: 0 }])
     setGlobalGst("")
     setCustomGstValue("")
     setCustomGstType("-")
@@ -787,13 +798,25 @@ function BillingContent() {
 
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-col gap-2">
-                            <input
-                              type="text"
-                              value={item.size}
-                              onChange={(e) => updateItem(item.id, 'size', e.target.value)}
-                              className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none"
-                              placeholder="Size e.g. 1L"
-                            />
+                            <div className="flex gap-1">
+                              <input
+                                type="number"
+                                value={item.size_value === 0 ? '' : item.size_value}
+                                onChange={(e) => updateItem(item.id, 'size_value', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                                className="h-9 w-full px-2 text-sm rounded border border-border-default focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="Size"
+                              />
+                              <select
+                                value={item.size_unit || 'L'}
+                                onChange={(e) => updateItem(item.id, 'size_unit', e.target.value)}
+                                className="h-9 w-16 px-1 text-sm rounded border border-border-default focus:border-primary outline-none"
+                              >
+                                <option value="L">L</option>
+                                <option value="KG">KG</option>
+                                <option value="ml">ml</option>
+                                <option value="gm">gm</option>
+                              </select>
+                            </div>
                             <input
                               type="text"
                               value={item.base}
@@ -1148,7 +1171,7 @@ function BillingContent() {
                   <Fragment key={i}>
                     <tr>
                       <td style={{ fontWeight: 'bold' }}>{item.name}</td>
-                      <td style={{ textAlign: 'center' }}>{item.size}</td>
+                      <td style={{ textAlign: 'center' }}>{item.size_value ? `${item.size_value} ${item.size_unit}` : item.size}</td>
                       <td style={{ textAlign: 'center' }}>{item.qty}</td>
                       <td style={{ textAlign: 'right' }}>{item.rate.toFixed(2)}</td>
                       <td style={{ textAlign: 'right' }}>{item.discountPercent > 0 ? `${item.discountPercent}%` : '-'}</td>
