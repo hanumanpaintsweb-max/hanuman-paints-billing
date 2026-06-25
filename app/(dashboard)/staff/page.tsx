@@ -1,218 +1,211 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
-import { supabase } from "@/lib/supabase"
-import { PlusCircle, Search, User, Phone, CheckCircle2, XCircle } from "lucide-react"
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase'; // Adjust import path if needed
+import { Trash2, Edit, Eye, X, Check, Search, UserPlus } from 'lucide-react';
 
-type StaffMember = {
-  id: string
-  name: string
-  phone: string
-  is_active: boolean
-  created_at: string
-}
+export default function StaffManagement() {
+  const [staff, setStaff] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
 
-export default function StaffPage() {
-  const [staff, setStaff] = useState<StaffMember[]>([])
-  const [search, setSearch] = useState("")
-  const [loading, setLoading] = useState(true)
+  // Add Staff State
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
 
-  const [newName, setNewName] = useState("")
-  const [newPhone, setNewPhone] = useState("")
-  const [isAdding, setIsAdding] = useState(false)
+  // Edit Staff State
+  const [editStaffId, setEditStaffId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+
+  // History State
+  const [historyModal, setHistoryModal] = useState<{ isOpen: boolean; staffName: string; bills: any[] }>({
+    isOpen: false,
+    staffName: '',
+    bills: []
+  });
 
   useEffect(() => {
-    fetchStaff()
-  }, [])
+    fetchStaff();
+  }, []);
 
   const fetchStaff = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .order('name', { ascending: true })
-
-    if (data) {
-      setStaff(data)
-    }
-    setLoading(false)
-  }
+    setLoading(true);
+    const { data, error } = await supabase.from('staff').select('*').order('created_at', { ascending: false });
+    if (!error && data) setStaff(data);
+    setLoading(false);
+  };
 
   const handleAddStaff = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newName.trim()) return
+    e.preventDefault();
+    if (!newName) return alert('Name is required');
 
-    setIsAdding(true)
-    const { data, error } = await supabase
-      .from('staff')
-      .insert([
-        {
-          name: newName,
-          phone: newPhone,
-          is_active: true
-        }
-      ])
-      .select()
-      .single()
-
-    if (error) {
-      alert("Error adding staff: " + error.message)
-    } else if (data) {
-      setStaff([...staff, data].sort((a, b) => a.name.localeCompare(b.name)))
-      setNewName("")
-      setNewPhone("")
-    }
-    setIsAdding(false)
-  }
-
-  const toggleStaffStatus = async (id: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus
-    const { error } = await supabase
-      .from('staff')
-      .update({ is_active: newStatus })
-      .eq('id', id)
-
-    if (error) {
-      alert("Error updating status: " + error.message)
+    const { error } = await supabase.from('staff').insert([{ name: newName, phone: newPhone, is_active: true }]);
+    if (!error) {
+      setNewName('');
+      setNewPhone('');
+      fetchStaff();
     } else {
-      setStaff(staff.map(s => s.id === id ? { ...s, is_active: newStatus } : s))
+      alert('Error adding staff');
     }
-  }
+  };
 
-  const filteredStaff = staff.filter(s => 
-    s.name.toLowerCase().includes(search.toLowerCase()) || 
-    s.phone?.includes(search)
-  )
+  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+    const { error } = await supabase.from('staff').update({ is_active: !currentStatus }).eq('id', id);
+    if (!error) fetchStaff();
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this staff member?')) return;
+    const { error } = await supabase.from('staff').delete().eq('id', id);
+    if (!error) fetchStaff();
+    else alert('Error deleting staff');
+  };
+
+  const openEditModal = (s: any) => {
+    setEditStaffId(s.id);
+    setEditName(s.name);
+    setEditPhone(s.phone || '');
+  };
+
+  const handleUpdateStaff = async () => {
+    if (!editName) return alert('Name is required');
+    const { error } = await supabase.from('staff').update({ name: editName, phone: editPhone }).eq('id', editStaffId);
+    if (!error) {
+      setEditStaffId(null);
+      fetchStaff();
+    } else {
+      alert('Error updating staff');
+    }
+  };
+
+  const viewHistory = async (staffName: string) => {
+    const { data, error } = await supabase
+      .from('bills')
+      .select('bill_number, created_at, customer_name, total_amount')
+      .eq('staff_name', staffName)
+      .order('created_at', { ascending: false });
+
+    if (!error) {
+      setHistoryModal({ isOpen: true, staffName, bills: data || [] });
+    }
+  };
+
+  const filteredStaff = staff.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="flex-1 overflow-auto bg-background min-h-screen">
-      <div className="p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card-bg p-5 rounded-lg border border-border-default shadow-sm">
-          <div>
-            <h1 className="text-2xl font-bold text-text-main flex items-center gap-2">
-              <User className="h-6 w-6 text-primary" />
-              Staff Management
-            </h1>
-            <p className="text-text-muted text-sm mt-1">Manage store employees and their billing access.</p>
-          </div>
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Search staff..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-surface-bg border border-border-default rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-            />
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <UserPlus className="text-teal-500" /> Staff Management
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Manage store employees and their billing access.</p>
+        </div>
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search staff..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Left Form */}
+        <div className="md:col-span-1">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-4 border-b bg-gray-50/50">
+              <h2 className="font-semibold flex items-center gap-2 text-gray-700">
+                <UserPlus size={18} className="text-teal-500" /> Add New Staff
+              </h2>
+            </div>
+            <form onSubmit={handleAddStaff} className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Staff Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Enter name"
+                  className="w-full border p-2 rounded-lg outline-none bg-gray-50 focus:bg-white focus:ring-2 focus:ring-teal-500 transition-all"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Phone Number</label>
+                <input
+                  type="text"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="Enter phone"
+                  className="w-full border p-2 rounded-lg outline-none bg-gray-50 focus:bg-white focus:ring-2 focus:ring-teal-500 transition-all"
+                />
+              </div>
+              <button type="submit" className="w-full bg-teal-300 hover:bg-teal-400 text-teal-900 font-semibold py-2 rounded-lg transition-colors">
+                Add Staff
+              </button>
+            </form>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          
-          {/* Add Staff Form */}
-          <div className="md:col-span-1 bg-card-bg rounded-lg border border-border-default shadow-sm overflow-hidden sticky top-6">
-            <div className="p-4 border-b border-border-default bg-surface-container-lowest">
-              <h2 className="font-semibold text-text-main flex items-center gap-2">
-                <PlusCircle className="h-4 w-4 text-primary" />
-                Add New Staff
-              </h2>
-            </div>
-            <div className="p-4">
-              <form onSubmit={handleAddStaff} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-text-main">Staff Name <span className="text-error">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Enter name"
-                    className="w-full px-3 py-2 bg-surface-bg border border-border-default rounded-md text-sm focus:outline-none focus:border-primary transition-colors"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-text-main">Phone Number</label>
-                  <input
-                    type="text"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    placeholder="Enter phone"
-                    className="w-full px-3 py-2 bg-surface-bg border border-border-default rounded-md text-sm focus:outline-none focus:border-primary transition-colors"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isAdding || !newName.trim()}
-                  className="w-full py-2 bg-primary text-white rounded-md font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAdding ? 'Adding...' : 'Add Staff'}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Staff List */}
-          <div className="md:col-span-2 bg-card-bg rounded-lg border border-border-default shadow-sm overflow-hidden">
+        {/* Right Table */}
+        <div className="md:col-span-2">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-surface-container-lowest border-b border-border-default">
-                    <th className="p-4 font-semibold text-text-main text-sm">Name</th>
-                    <th className="p-4 font-semibold text-text-main text-sm">Phone</th>
-                    <th className="p-4 font-semibold text-text-main text-sm">Status</th>
-                    <th className="p-4 font-semibold text-text-main text-sm text-right">Action</th>
+                  <tr className="bg-gray-50/50 border-b text-sm text-gray-600">
+                    <th className="p-4 font-semibold">Name</th>
+                    <th className="p-4 font-semibold">Phone</th>
+                    <th className="p-4 font-semibold">Status</th>
+                    <th className="p-4 font-semibold text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border-default">
+                <tbody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={4} className="p-8 text-center text-text-muted">Loading staff...</td>
-                    </tr>
+                    <tr><td colSpan={4} className="p-4 text-center text-gray-500">Loading staff...</td></tr>
                   ) : filteredStaff.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="p-8 text-center text-text-muted">
-                        No staff members found.
-                      </td>
-                    </tr>
+                    <tr><td colSpan={4} className="p-4 text-center text-gray-500">No staff found.</td></tr>
                   ) : (
                     filteredStaff.map((s) => (
-                      <tr key={s.id} className="hover:bg-surface-bg transition-colors">
+                      <tr key={s.id} className="border-b hover:bg-gray-50 transition-colors">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs uppercase">
+                            <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xs font-bold uppercase">
                               {s.name.substring(0, 2)}
                             </div>
-                            <span className="font-medium text-text-main">{s.name}</span>
+                            <span 
+                              onClick={() => viewHistory(s.name)}
+                              className="font-medium text-gray-800 cursor-pointer hover:text-teal-600 hover:underline"
+                              title="Click to view billing history"
+                            >
+                              {s.name}
+                            </span>
                           </div>
                         </td>
-                        <td className="p-4 text-sm text-text-muted">
-                          {s.phone ? (
-                            <span className="flex items-center gap-1"><Phone className="h-3 w-3"/> {s.phone}</span>
-                          ) : (
-                            <span className="text-border-default">-</span>
-                          )}
-                        </td>
+                        <td className="p-4 text-sm text-gray-500">{s.phone ? `📞 ${s.phone}` : '-'}</td>
                         <td className="p-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
-                            s.is_active 
-                              ? 'bg-green-500/10 text-green-600 border-green-500/20' 
-                              : 'bg-red-500/10 text-red-600 border-red-500/20'
-                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {s.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="p-4 text-right">
-                          <button
-                            onClick={() => toggleStaffStatus(s.id, s.is_active)}
-                            className={`text-xs px-3 py-1.5 rounded font-medium transition-colors ${
-                              s.is_active 
-                                ? 'bg-surface-container text-text-muted hover:text-error hover:bg-error/10' 
-                                : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'
-                            }`}
+                        <td className="p-4 text-right flex justify-end gap-2 items-center">
+                          <button 
+                            onClick={() => handleToggleStatus(s.id, s.is_active)}
+                            className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${s.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-teal-50 text-teal-600 hover:bg-teal-100'}`}
                           >
                             {s.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button onClick={() => openEditModal(s)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors" title="Edit">
+                            <Edit size={16} />
+                          </button>
+                          <button onClick={() => handleDeleteStaff(s.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors" title="Delete">
+                            <Trash2 size={16} />
                           </button>
                         </td>
                       </tr>
@@ -222,9 +215,72 @@ export default function StaffPage() {
               </table>
             </div>
           </div>
-
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editStaffId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="font-bold text-lg">Edit Staff Details</h3>
+              <button onClick={() => setEditStaffId(null)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <input type="text" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="w-full border p-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
+              <button onClick={() => setEditStaffId(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Cancel</button>
+              <button onClick={handleUpdateStaff} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-1">
+                <Check size={16} /> Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {historyModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Eye className="text-teal-500" size={20} /> Billing History: {historyModal.staffName}
+              </h3>
+              <button onClick={() => setHistoryModal({ ...historyModal, isOpen: false })} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              {historyModal.bills.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No bills found for this staff member.</p>
+              ) : (
+                <div className="space-y-3">
+                  {historyModal.bills.map((bill, idx) => (
+                    <div key={idx} className="flex flex-wrap justify-between items-center p-3 border rounded-lg hover:shadow-sm transition-shadow bg-gray-50/50">
+                      <div>
+                        <p className="font-semibold text-gray-800">{bill.bill_number}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(bill.created_at).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <div className="text-right mt-2 sm:mt-0">
+                        <p className="text-sm text-gray-600">{bill.customer_name}</p>
+                        <p className="font-bold text-teal-600">₹{bill.total_amount.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
