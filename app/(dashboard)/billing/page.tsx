@@ -23,6 +23,36 @@ interface BillItem {
   litreDiscount?: number;
 }
 
+const parseSizeString = (sizeStr: string | number) => {
+  if (!sizeStr) return { size_value: 0, size_unit: 'L' };
+
+  // Match numbers (including decimals) and text separately
+  const match = String(sizeStr).trim().match(/^([\d.]+)\s*([a-zA-Z]*)$/);
+
+  if (match) {
+    const val = parseFloat(match[1]);
+    let rawUnit = match[2] ? match[2].toLowerCase() : '';
+    let unit = 'L'; // Default
+
+    // Standardize units
+    if (['ml'].includes(rawUnit)) unit = 'ml';
+    else if (['g', 'gm'].includes(rawUnit)) unit = 'gm';
+    else if (['kg'].includes(rawUnit)) unit = 'KG';
+    else if (['l', 'lit', 'ltr'].includes(rawUnit)) unit = 'L';
+    else if (['pcs', 'pc'].includes(rawUnit)) unit = 'Pcs';
+    else if (['mm'].includes(rawUnit)) unit = 'mm';
+    else if (['inch'].includes(rawUnit)) unit = 'Inch';
+    else if (['ft', 'fit'].includes(rawUnit)) unit = 'FT';
+    else if (['no'].includes(rawUnit)) unit = 'No';
+    else if (['mt'].includes(rawUnit)) unit = 'MT';
+    else if (rawUnit !== '') unit = match[2]; // Fallback to raw text if unknown
+
+    return { size_value: isNaN(val) ? 0 : val, size_unit: unit };
+  }
+  // Fallback if no letters are found
+  return { size_value: parseFloat(String(sizeStr)) || 0, size_unit: 'L' };
+};
+
 function BillingContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -340,10 +370,22 @@ function BillingContent() {
   const handleProductSelect = (id: string, name: string, unit?: string, mrp?: number) => {
     setItems(items.map(i => {
       if (i.id === id) {
+        let newSizeVal = i.size_value || 0;
+        let newSizeUnit = i.size_unit || 'L';
+        let finalSizeStr = unit !== undefined ? unit : i.size;
+
+        if (unit) {
+          const parsed = parseSizeString(unit);
+          newSizeVal = parsed.size_value;
+          newSizeUnit = parsed.size_unit;
+        }
+
         return {
           ...i,
           name,
-          size: unit !== undefined ? unit : i.size,
+          size: finalSizeStr,
+          size_value: newSizeVal,
+          size_unit: newSizeUnit,
           rate: mrp !== undefined && mrp !== null ? mrp : i.rate
         }
       }
@@ -815,9 +857,15 @@ function BillingContent() {
                                 className="h-9 w-16 px-1 text-sm rounded border border-border-default focus:border-primary outline-none"
                               >
                                 <option value="L">L</option>
-                                <option value="KG">KG</option>
                                 <option value="ml">ml</option>
+                                <option value="KG">KG</option>
                                 <option value="gm">gm</option>
+                                <option value="Pcs">Pcs</option>
+                                <option value="mm">mm</option>
+                                <option value="Inch">Inch</option>
+                                <option value="FT">FT</option>
+                                <option value="MT">MT</option>
+                                <option value="No">No</option>
                               </select>
                             </div>
                             <input
