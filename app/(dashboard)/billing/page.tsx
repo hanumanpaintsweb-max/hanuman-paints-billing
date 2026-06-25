@@ -200,7 +200,6 @@ function BillingContent() {
 
       if (data && data.length > 0) {
         setStaffList(data)
-        if (!editId) setStaffName(data[0].name)
       }
     }
     fetchStaff()
@@ -727,10 +726,11 @@ function BillingContent() {
                     onChange={(e) => setStaffName(e.target.value)}
                     className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                   >
-                    <option value="" disabled>Select Staff Name</option>
-                    <option value="Owner">Choose Staff</option>
-                    <option value="Staff 1">Staff 1</option>
-                    <option value="Staff 2">Staff 2</option>
+                    <option value="" disabled>Choose Staff Name Here</option>
+                    <option value="Owner">Owner</option>
+                    {staffList.map((staff) => (
+                      <option key={staff.id} value={staff.name}>{staff.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
