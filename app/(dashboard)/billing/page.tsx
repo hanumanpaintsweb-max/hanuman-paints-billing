@@ -27,7 +27,7 @@ function BillingContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const editId = searchParams.get('edit')
-  
+
   // Security: Atomic submission lock
   const isSubmitting = useRef(false)
 
@@ -117,7 +117,7 @@ function BillingContent() {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target as Node) &&
-          customerInputRef.current && !customerInputRef.current.contains(event.target as Node)) {
+        customerInputRef.current && !customerInputRef.current.contains(event.target as Node)) {
         setShowCustomerDropdown(false)
       }
     }
@@ -142,13 +142,13 @@ function BillingContent() {
   useEffect(() => {
     const fetchCustomers = async () => {
       let query = supabase.from('customers').select('name, phone, customer_type, notes').limit(50)
-      
+
       if (customerName && customerName.trim().length > 0) {
         query = query.or(`name.ilike.%${customerName}%,phone.ilike.%${customerName}%`)
       } else {
         query = query.order('name', { ascending: true })
       }
-      
+
       const { data } = await query
       if (data) setCustomerResults(data)
     }
@@ -197,7 +197,7 @@ function BillingContent() {
         .select("id, name")
         .eq("is_active", true)
         .order("name", { ascending: true })
-      
+
       if (data && data.length > 0) {
         setStaffList(data)
         if (!editId) setStaffName(data[0].name)
@@ -260,29 +260,29 @@ function BillingContent() {
     return items.map(item => {
       const base = item.qty * item.rate;
       const disc_percent_amount = base * ((item.discountPercent || 0) / 100);
-      
+
       let normalizedSize = item.size_value || 0;
       if (item.size_unit === 'ml' || item.size_unit === 'gm') {
-          normalizedSize = normalizedSize / 1000;
+        normalizedSize = normalizedSize / 1000;
       }
       const litreDiscountRate = item.litreDiscount || 0;
       const litre_disc_amount = billType === 'DPL' ? (normalizedSize * litreDiscountRate * item.qty) : 0;
-      
+
       const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
-      
+
       const taxable = Math.max(0, base - disc_percent_amount - litre_disc_amount + colorant);
-      
+
       const gstRate = globalGst === "" ? 0 : Number(globalGst);
       const gst = taxable * (gstRate / 100);
-      
+
       const item_total = Math.max(0, taxable + gst);
-      
-      return { 
-        ...item, 
-        basePrice: base, 
-        colorant, 
+
+      return {
+        ...item,
+        basePrice: base,
+        colorant,
         litre_disc_amount,
-        itemDiscount: disc_percent_amount, 
+        itemDiscount: disc_percent_amount,
         item_sub: base + colorant,
         taxable,
         gst,
@@ -373,7 +373,7 @@ function BillingContent() {
 
   const handleSave = async (isPrintAction = false) => {
     if (isSubmitting.current) return null; // Double-Click Lock
-    
+
     if (!customerName || !customerPhone || customerPhone.length < 10) {
       alert("Please enter a valid customer name and 10-digit phone number.")
       return null
@@ -426,7 +426,7 @@ function BillingContent() {
       let ledgerData = null;
       if (computedPaymentStatus === 'unpaid' || computedPaymentStatus === 'partial') {
         const balanceDue = grandTotal - computedPaidAmount;
-        
+
         if (balanceDue > 0) {
           ledgerData = {
             customer_name: customerName,
@@ -484,15 +484,15 @@ function BillingContent() {
       const deductionPromises = calculatedItems.map(async (item) => {
         if (!item.name || item.qty <= 0) return;
         if (editId) return; // Prevent double-deduction when editing an existing bill
-        
+
         // Use atomic RPC stock deduction to prevent concurrency overrides
         const { data, error } = await supabase.rpc('decrement_stock', {
           p_name: item.name,
           qty: item.qty
         });
-        
+
         if (error || !data) {
-           warnings.push(`⚠️ ${item.name} ka stock update fail hua ya kam hai`)
+          warnings.push(`⚠️ ${item.name} ka stock update fail hua ya kam hai`)
         }
       })
       await Promise.all(deductionPromises)
@@ -518,7 +518,7 @@ function BillingContent() {
                 last_visit: new Date().toISOString()
               })
               .eq('id', existingCustomer.id);
-            
+
             if (updateError) {
               console.error("Supabase Error updating customer:", updateError);
               warnings.push(`⚠️ Customer record update failed: ${updateError.message}`);
@@ -538,7 +538,7 @@ function BillingContent() {
                 total_value: totals.total_amount,
                 last_visit: new Date().toISOString()
               }]);
-              
+
             if (insertError) {
               console.error("Supabase Error inserting customer:", insertError);
               warnings.push(`⚠️ Customer record save failed: ${insertError.message}`);
@@ -668,9 +668,9 @@ function BillingContent() {
                     placeholder="Enter name"
                   />
                   {showCustomerDropdown && (
-                    <div 
-                      ref={customerDropdownRef} 
-                      className="product-dropdown" 
+                    <div
+                      ref={customerDropdownRef}
+                      className="product-dropdown"
                       style={customerDropdownStyle}
                     >
                       <ul className="py-1">
@@ -728,7 +728,7 @@ function BillingContent() {
                     className="h-10 px-3 rounded border border-border-default bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                   >
                     <option value="" disabled>Select Staff Name</option>
-                    <option value="Owner">Owner</option>
+                    <option value="Owner">Choose Staff</option>
                     <option value="Staff 1">Staff 1</option>
                     <option value="Staff 2">Staff 2</option>
                   </select>
@@ -937,7 +937,7 @@ function BillingContent() {
                       if (e.target.checked) setAmountPaid(0)
                     }}
                     className="text-primary focus:ring-primary accent-primary w-4 h-4"
-                  /> 
+                  />
                   Customer paid nothing (mark fully unpaid)
                 </label>
 
@@ -984,8 +984,8 @@ function BillingContent() {
                       setCustomGstValue("")
                     }}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${globalGst === pct
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-surface text-text-muted border-border-default hover:border-primary/50'
                       }`}
                   >
                     {pct > 0 ? `+${pct}%` : `${pct}%`}
@@ -1149,12 +1149,12 @@ function BillingContent() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '15px', fontSize: '14px' }}>
               <div>
-                <strong>Bill To:</strong> {customerName}<br/>
+                <strong>Bill To:</strong> {customerName}<br />
                 <strong>Phone:</strong> {customerPhone}
               </div>
               <div style={{ textAlign: 'right' }}>
-                <strong>Bill No:</strong> {billNumber}<br/>
-                <strong>Date:</strong> {format(new Date(billDate), "dd-MM-yyyy")}<br/>
+                <strong>Bill No:</strong> {billNumber}<br />
+                <strong>Date:</strong> {format(new Date(billDate), "dd-MM-yyyy")}<br />
                 <strong>Type:</strong> {billType}
               </div>
             </div>
@@ -1266,7 +1266,7 @@ function BillingContent() {
                 </div>
               </div>
             )}
-            
+
           </div>
         ))}
       </div>
