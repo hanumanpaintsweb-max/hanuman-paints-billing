@@ -1192,7 +1192,9 @@ function BillingContent() {
               <div style={{ fontSize: '14px' }}>{shopSettings.tagline}</div>
               <div style={{ fontSize: '14px' }}>{shopSettings.address}</div>
               <div style={{ fontSize: '14px' }}>Ph: {shopSettings.phone}</div>
-              <h3 style={{ margin: '15px 0 5px 0' }}>TAX INVOICE</h3>
+              <h3 style={{ margin: '15px 0 5px 0' }}>
+                {billType === 'DPL' ? 'DPL BILL' : billType === 'MRP' ? 'Bill' : 'TAX INVOICE'}
+              </h3>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #000', paddingBottom: '10px', marginBottom: '15px', fontSize: '14px' }}>

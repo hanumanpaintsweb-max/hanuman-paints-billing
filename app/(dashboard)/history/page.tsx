@@ -277,7 +277,7 @@ function HistoryContent() {
                 <div className="text-[12px] m-0 p-0">{shopSettings.address}</div>
                 <div className="text-[12px] m-0 p-0">Ph: {shopSettings.phone}</div>
                 <div className="mt-2 font-bold text-[14px] uppercase">
-                  {previewBill.bill_type === 'DPL' ? 'DPL INVOICE' : 'TAX INVOICE'}
+                  {previewBill.bill_type === 'DPL' ? 'DPL BILL' : previewBill.bill_type === 'MRP' ? 'Bill' : 'TAX INVOICE'}
                 </div>
                 <div className="text-[12px] font-bold mt-1">Bill: {previewBill.bill_number}</div>
               </div>
