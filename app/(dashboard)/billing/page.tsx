@@ -287,32 +287,39 @@ function BillingContent() {
   // Calculations (Enforced explicit Float logic)
   const calculatedItems = useMemo(() => {
     return items.map(item => {
-      const base = item.qty * item.rate;
-      const disc_percent_amount = base * ((item.discountPercent || 0) / 100);
+      // 1. Base
+      const baseAmount = item.qty * item.rate;
+      const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
+      const totalBase = baseAmount + colorant;
 
+      // 2. % Discount
+      const disc_percent_amount = baseAmount * ((item.discountPercent || 0) / 100);
+      const amountAfterPercDisc = totalBase - disc_percent_amount;
+      
+      // 3. GST (Calculated before Litre Discount)
+      const taxable = Math.max(0, amountAfterPercDisc);
+      const gstRate = globalGst === "" ? 0 : Number(globalGst);
+      const gst = taxable * (gstRate / 100);
+      const amountAfterGst = taxable + gst;
+
+      // 4. Litre Discount
       let normalizedSize = item.size_value || 0;
       if (item.size_unit === 'ml' || item.size_unit === 'gm') {
         normalizedSize = normalizedSize / 1000;
       }
       const litreDiscountRate = item.litreDiscount || 0;
       const litre_disc_amount = billType === 'DPL' ? (normalizedSize * litreDiscountRate * item.qty) : 0;
-
-      const colorant = item.hasColorant ? (item.colorantCost || 0) : 0;
-
-      const taxable = Math.max(0, base - disc_percent_amount - litre_disc_amount + colorant);
-
-      const gstRate = globalGst === "" ? 0 : Number(globalGst);
-      const gst = taxable * (gstRate / 100);
-
-      const item_total = Math.max(0, taxable + gst);
+      
+      // 5. Final Item Total
+      const item_total = Math.max(0, amountAfterGst - litre_disc_amount);
 
       return {
         ...item,
-        basePrice: base,
+        basePrice: baseAmount,
         colorant,
         litre_disc_amount,
         itemDiscount: disc_percent_amount,
-        item_sub: base + colorant,
+        item_sub: totalBase,
         taxable,
         gst,
         item_total
@@ -341,7 +348,9 @@ function BillingContent() {
 
     const cgst = Number((gst_total / 2).toFixed(2));
     const sgst = Number((gst_total / 2).toFixed(2));
-    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst));
+    
+    // Calculate final grand total by subtracting litre discounts from the tax-included sum
+    const total_amount = Math.max(0, Math.round(taxable_value + cgst + sgst - litre_discount_total));
 
     return {
       subtotal: Number(subtotal.toFixed(2)),
